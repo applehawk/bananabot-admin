@@ -87,7 +87,7 @@ export default function TransactionsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">{tx.user.firstName || tx.user.username || tx.user.telegramId}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{tx.user.firstName || tx.user.username || tx.user.telegramId}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{tx.type}</span>
                     </td>
