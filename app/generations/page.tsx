@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
@@ -43,7 +43,7 @@ interface DailyStats {
   count: number;
 }
 
-export default function GenerationsPage() {
+function GenerationsContent() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
@@ -276,46 +276,56 @@ export default function GenerationsPage() {
               Showing {filteredGenerations.length} of {generations.length} generations
             </div>
             <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prompt</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredGenerations.map((gen) => (
-                  <tr key={gen.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{gen.user.firstName || gen.user.username}</td>
-                    <td className="px-6 py-4 whitespace-nowrap"><span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded">{gen.type}</span></td>
-                    <td className="px-6 py-4 text-sm max-w-md">
-                      <div className={`${expandedPrompts.has(gen.id) ? '' : 'line-clamp-2'} text-gray-800`}>
-                        {gen.prompt}
-                      </div>
-                      {gen.prompt.length > 100 && (
-                        <button
-                          onClick={() => togglePrompt(gen.id)}
-                          className="text-blue-600 hover:text-blue-800 text-xs mt-1 font-medium"
-                        >
-                          {expandedPrompts.has(gen.id) ? 'Collapse' : 'Expand...'}
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-medium rounded ${gen.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : gen.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{gen.status}</span></td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{gen.creditsUsed.toFixed(1)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(gen.createdAt).toLocaleString()}</td>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prompt</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredGenerations.map((gen) => (
+                    <tr key={gen.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{gen.user.firstName || gen.user.username}</td>
+                      <td className="px-6 py-4 whitespace-nowrap"><span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded">{gen.type}</span></td>
+                      <td className="px-6 py-4 text-sm max-w-md">
+                        <div className={`${expandedPrompts.has(gen.id) ? '' : 'line-clamp-2'} text-gray-800`}>
+                          {gen.prompt}
+                        </div>
+                        {gen.prompt.length > 100 && (
+                          <button
+                            onClick={() => togglePrompt(gen.id)}
+                            className="text-blue-600 hover:text-blue-800 text-xs mt-1 font-medium"
+                          >
+                            {expandedPrompts.has(gen.id) ? 'Collapse' : 'Expand...'}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-medium rounded ${gen.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : gen.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{gen.status}</span></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{gen.creditsUsed.toFixed(1)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(gen.createdAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </main>
     </div>
+  );
+}
+
+export default function GenerationsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+    </div>}>
+      <GenerationsContent />
+    </Suspense>
   );
 }

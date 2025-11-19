@@ -17,7 +17,7 @@ RUN pnpm install --frozen-lockfile
 COPY prisma ./prisma
 
 # Generate Prisma Client
-RUN cd prisma && pnpm install --frozen-lockfile && pnpm generate
+RUN pnpm prisma generate --schema=./prisma/schema.prisma
 
 # Copy source code
 COPY . .
@@ -50,7 +50,7 @@ RUN pnpm install --frozen-lockfile --prod
 
 # Copy Prisma submodule and generated client
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy built Next.js application

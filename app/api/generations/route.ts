@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Convert BigInt to string for JSON serialization
-    const serializedGenerations = generations.map(gen => ({
+    const serializedGenerations = generations.map((gen: any) => ({
       ...gen,
       user: {
         ...gen.user,

@@ -11,7 +11,7 @@ export async function GET() {
     });
 
     // Convert BigInt to string for JSON serialization
-    const serializedAdmins = admins.map(admin => ({
+    const serializedAdmins = admins.map((admin: any) => ({
       ...admin,
       telegramId: admin.telegramId.toString(),
     }));

@@ -20,7 +20,7 @@ export async function GET() {
     });
 
     // Convert BigInt to string for JSON serialization
-    const serializedUsers = users.map(user => ({
+    const serializedUsers = users.map((user: any) => ({
       ...user,
       telegramId: user.telegramId.toString(),
     }));

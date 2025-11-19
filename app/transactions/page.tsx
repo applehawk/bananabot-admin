@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
@@ -45,7 +45,7 @@ interface DailyStats {
   revenue: number;
 }
 
-export default function TransactionsPage() {
+function TransactionsContent() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('createdAt');
@@ -256,7 +256,7 @@ export default function TransactionsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{tx.type}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{color: tx.creditsAdded > 0 ? 'green' : 'red'}}>{tx.creditsAdded > 0 ? '+' : ''}{tx.creditsAdded.toFixed(1)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{ color: tx.creditsAdded > 0 ? 'green' : 'red' }}>{tx.creditsAdded > 0 ? '+' : ''}{tx.creditsAdded.toFixed(1)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">{tx.amount ? `${tx.amount} руб.` : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">{tx.paymentMethod}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -271,5 +271,15 @@ export default function TransactionsPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+    </div>}>
+      <TransactionsContent />
+    </Suspense>
   );
 }

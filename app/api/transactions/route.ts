@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Convert BigInt to string for JSON serialization
-    const serializedTransactions = transactions.map(tx => ({
+    const serializedTransactions = transactions.map((tx: any) => ({
       ...tx,
       user: {
         ...tx.user,
