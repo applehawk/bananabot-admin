@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleDatabaseError } from '@/lib/db-error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,8 @@ export async function GET() {
     return NextResponse.json(serializedAdmins);
   } catch (error) {
     console.error('Error fetching admin users:', error);
-    return NextResponse.json({ error: 'Failed to fetch admin users' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
 
@@ -42,6 +44,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(serializedAdmin, { status: 201 });
   } catch (error) {
     console.error('Error creating admin user:', error);
-    return NextResponse.json({ error: 'Failed to create admin user' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }

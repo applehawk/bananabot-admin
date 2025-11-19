@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleDatabaseError } from '@/lib/db-error-handler';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteParams = { params: Promise<{ id: string }> };
+
+export async function GET(_request: NextRequest, context: RouteParams) {
+  const { id } = await context.params;
   try {
     const settings = await prisma.userSettings.findUnique({
-      where: { userId: params.id },
+      where: { userId: id },
       include: {
         user: {
           select: {
@@ -35,19 +36,18 @@ export async function GET(
     return NextResponse.json(serializedSettings);
   } catch (error) {
     console.error('Error fetching user settings:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, context: RouteParams) {
+  const { id } = await context.params;
   try {
     const data = await request.json();
 
     const settings = await prisma.userSettings.upsert({
-      where: { userId: params.id },
+      where: { userId: id },
       update: {
         aspectRatio: data.aspectRatio,
         numberOfImages: data.numberOfImages,
@@ -60,7 +60,7 @@ export async function PUT(
         notifyOnBonus: data.notifyOnBonus,
       },
       create: {
-        userId: params.id,
+        userId: id,
         aspectRatio: data.aspectRatio,
         numberOfImages: data.numberOfImages,
         safetyLevel: data.safetyLevel,
@@ -76,6 +76,7 @@ export async function PUT(
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Error updating user settings:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }

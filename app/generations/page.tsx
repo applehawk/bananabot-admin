@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
+import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -49,6 +50,7 @@ export default function GenerationsPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED'>('COMPLETED');
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [databaseError, setDatabaseError] = useState(false);
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
@@ -93,10 +95,25 @@ export default function GenerationsPage() {
       const queryString = params.toString();
       const res = await fetch(`/api/generations${queryString ? `?${queryString}` : ''}`);
       const data = await res.json();
-      setGenerations(data);
-      calculateStats(data);
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        setGenerations([]);
+        setDailyStats([]);
+      } else if (Array.isArray(data)) {
+        setDatabaseError(false);
+        setGenerations(data);
+        calculateStats(data);
+      } else {
+        setDatabaseError(false);
+        setGenerations([]);
+        setDailyStats([]);
+      }
     } catch (error) {
       console.error('Error:', error);
+      setDatabaseError(true);
+      setGenerations([]);
+      setDailyStats([]);
     } finally {
       setLoading(false);
     }
@@ -147,6 +164,8 @@ export default function GenerationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-bold text-gray-900">

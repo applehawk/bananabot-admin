@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
 interface Analytics {
   id: string;
@@ -31,6 +32,7 @@ export default function AnalyticsPage() {
   const [dateTo, setDateTo] = useState('');
   const [minGenerations, setMinGenerations] = useState('');
   const [minRevenue, setMinRevenue] = useState('');
+  const [databaseError, setDatabaseError] = useState(false);
 
   useEffect(() => {
     fetchAnalytics();
@@ -39,9 +41,22 @@ export default function AnalyticsPage() {
   const fetchAnalytics = async () => {
     try {
       const res = await fetch('/api/analytics');
-      setAnalytics(await res.json());
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        setAnalytics([]);
+      } else if (Array.isArray(data)) {
+        setDatabaseError(false);
+        setAnalytics(data);
+      } else {
+        setDatabaseError(false);
+        setAnalytics([]);
+      }
     } catch (error) {
       console.error('Error:', error);
+      setDatabaseError(true);
+      setAnalytics([]);
     } finally {
       setLoading(false);
     }
@@ -89,6 +104,8 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-bold text-gray-900">📊 Analytics</h1>

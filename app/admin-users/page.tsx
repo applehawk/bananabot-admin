@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
 interface AdminUser {
   id: string;
@@ -14,6 +15,7 @@ export default function AdminUsersPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [databaseError, setDatabaseError] = useState(false);
   const [formData, setFormData] = useState({
     telegramId: '',
     username: '',
@@ -27,9 +29,22 @@ export default function AdminUsersPage() {
   const fetchAdmins = async () => {
     try {
       const res = await fetch('/api/admin-users');
-      setAdmins(await res.json());
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        setAdmins([]);
+      } else if (Array.isArray(data)) {
+        setDatabaseError(false);
+        setAdmins(data);
+      } else {
+        setDatabaseError(false);
+        setAdmins([]);
+      }
     } catch (error) {
       console.error('Error:', error);
+      setDatabaseError(true);
+      setAdmins([]);
     } finally {
       setLoading(false);
     }
@@ -44,7 +59,7 @@ export default function AdminUsersPage() {
     }
 
     try {
-      await fetch('/api/admin-users', {
+      const res = await fetch('/api/admin-users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,6 +68,20 @@ export default function AdminUsersPage() {
           role: formData.role,
         }),
       });
+
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        closeModal();
+        return;
+      }
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to add admin user');
+        return;
+      }
+
       fetchAdmins();
       closeModal();
     } catch (error) {
@@ -64,20 +93,46 @@ export default function AdminUsersPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Remove this admin?')) return;
     try {
-      await fetch(`/api/admin-users/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin-users/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        return;
+      }
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to remove admin user');
+        return;
+      }
+
       fetchAdmins();
     } catch (error) {
       console.error('Error:', error);
+      alert('Failed to remove admin user');
     }
   };
 
   const handleRoleUpdate = async (id: string, newRole: string) => {
     try {
-      await fetch(`/api/admin-users/${id}`, {
+      const res = await fetch(`/api/admin-users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
       });
+
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        return;
+      }
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to update role');
+        return;
+      }
+
       fetchAdmins();
     } catch (error) {
       console.error('Error:', error);
@@ -96,6 +151,8 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">🔐 Admin Users</h1>

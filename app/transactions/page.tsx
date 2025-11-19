@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
+import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -50,6 +51,7 @@ export default function TransactionsPage() {
   const [sortBy, setSortBy] = useState('createdAt');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [databaseError, setDatabaseError] = useState(false);
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
@@ -66,10 +68,25 @@ export default function TransactionsPage() {
 
       const res = await fetch(`/api/transactions?${params}`);
       const data = await res.json();
-      setTransactions(data);
-      calculateStats(data);
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        setTransactions([]);
+        setDailyStats([]);
+      } else if (Array.isArray(data)) {
+        setDatabaseError(false);
+        setTransactions(data);
+        calculateStats(data);
+      } else {
+        setDatabaseError(false);
+        setTransactions([]);
+        setDailyStats([]);
+      }
     } catch (error) {
       console.error('Error:', error);
+      setDatabaseError(true);
+      setTransactions([]);
+      setDailyStats([]);
     } finally {
       setLoading(false);
     }
@@ -129,6 +146,8 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-bold text-gray-900">💳 Transactions {userId && '(Filtered)'}</h1>

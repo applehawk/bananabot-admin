@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Line } from 'react-chartjs-2';
+import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -52,6 +53,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [databaseError, setDatabaseError] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -61,10 +63,18 @@ export default function UsersPage() {
     try {
       const res = await fetch('/api/users');
       const data = await res.json();
-      setUsers(data);
-      calculateStats(data);
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        setUsers([]);
+      } else {
+        setDatabaseError(false);
+        setUsers(data);
+        calculateStats(data);
+      }
     } catch (error) {
       console.error('Error:', error);
+      setDatabaseError(true);
     } finally {
       setLoading(false);
     }
@@ -114,6 +124,8 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-bold text-gray-900">👥 Users</h1>

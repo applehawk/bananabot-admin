@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleDatabaseError } from '@/lib/db-error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(analytics);
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }

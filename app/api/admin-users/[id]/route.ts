@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleDatabaseError } from '@/lib/db-error-handler';
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteParams = { params: Promise<{ id: string }> };
+
+export async function PUT(request: NextRequest, context: RouteParams) {
+  const { id } = await context.params;
   try {
     const body = await request.json();
     const admin = await prisma.adminUser.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         role: body.role,
       },
@@ -16,21 +17,21 @@ export async function PUT(
     return NextResponse.json(admin);
   } catch (error) {
     console.error('Error updating admin user:', error);
-    return NextResponse.json({ error: 'Failed to update admin user' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, context: RouteParams) {
+  const { id } = await context.params;
   try {
     await prisma.adminUser.delete({
-      where: { id: params.id },
+      where: { id },
     });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting admin user:', error);
-    return NextResponse.json({ error: 'Failed to delete admin user' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }

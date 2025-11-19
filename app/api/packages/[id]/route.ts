@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleDatabaseError } from '@/lib/db-error-handler';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -11,7 +12,8 @@ export async function GET(_request: Request, context: RouteParams) {
     return NextResponse.json(pkg);
   } catch (error) {
     console.error('Error fetching package:', error);
-    return NextResponse.json({ error: 'Failed to fetch package' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
 
@@ -38,7 +40,8 @@ export async function PUT(request: Request, context: RouteParams) {
     return NextResponse.json(updatedPackage);
   } catch (error) {
     console.error('Error updating package:', error);
-    return NextResponse.json({ error: 'Failed to update package' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
 
@@ -49,6 +52,7 @@ export async function DELETE(_request: Request, context: RouteParams) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting package:', error);
-    return NextResponse.json({ error: 'Failed to delete package' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }

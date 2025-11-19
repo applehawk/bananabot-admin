@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
 interface CreditPackage {
   id: string;
@@ -22,6 +23,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<CreditPackage | null>(null);
+  const [databaseError, setDatabaseError] = useState(false);
   const [formData, setFormData] = useState({
     name: '', credits: '', price: '', currency: 'RUB', discount: '0',
     popular: false, active: true, priceYooMoney: '', priceStars: '', priceCrypto: '', description: '',
@@ -32,9 +34,18 @@ export default function AdminPage() {
   const fetchPackages = async () => {
     try {
       const res = await fetch('/api/packages');
-      setPackages(await res.json());
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        setPackages([]);
+      } else {
+        setDatabaseError(false);
+        setPackages(data);
+      }
     } catch (error) {
       console.error('Error:', error);
+      setDatabaseError(true);
     } finally {
       setLoading(false);
     }
@@ -52,11 +63,25 @@ export default function AdminPage() {
 
     try {
       const url = editingPackage ? `/api/packages/${editingPackage.id}` : '/api/packages';
-      await fetch(url, {
+      const res = await fetch(url, {
         method: editingPackage ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        closeModal();
+        return;
+      }
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to save package');
+        return;
+      }
+
       fetchPackages();
       closeModal();
     } catch (error) {
@@ -68,10 +93,23 @@ export default function AdminPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this package?')) return;
     try {
-      await fetch(`/api/packages/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/packages/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (res.status === 503 && data.isDatabaseDown) {
+        setDatabaseError(true);
+        return;
+      }
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete package');
+        return;
+      }
+
       fetchPackages();
     } catch (error) {
       console.error('Error:', error);
+      alert('Failed to delete package');
     }
   };
 
@@ -104,6 +142,8 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">💎 BananaBot Admin</h1>

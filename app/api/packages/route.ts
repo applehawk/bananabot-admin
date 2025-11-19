@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleDatabaseError } from '@/lib/db-error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,8 @@ export async function GET() {
     return NextResponse.json(packages);
   } catch (error) {
     console.error('Error fetching packages:', error);
-    return NextResponse.json({ error: 'Failed to fetch packages' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
 
@@ -36,6 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json(newPackage, { status: 201 });
   } catch (error) {
     console.error('Error creating package:', error);
-    return NextResponse.json({ error: 'Failed to create package' }, { status: 500 });
+    const errorResponse = handleDatabaseError(error);
+    return NextResponse.json(errorResponse, { status: errorResponse.status });
   }
 }
