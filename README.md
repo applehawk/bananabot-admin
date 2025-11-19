@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BananaBot Admin Panel
 
-## Getting Started
+Административная панель для управления Telegram-ботом BananaBot. Построена на [Next.js](https://nextjs.org) с использованием App Router.
 
-First, run the development server:
+## Функциональность
+
+- 📊 **Аналитика** - просмотр статистики использования бота
+- 👥 **Управление пользователями** - просмотр и редактирование пользователей
+- 🎨 **Генерации** - история генераций изображений
+- 💰 **Транзакции** - управление платежами и подписками
+- 📦 **Пакеты** - настройка тарифных планов
+- 🔐 **Админ-пользователи** - управление доступом к админ-панели
+
+## Быстрый старт
+
+### Установка зависимостей
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+make install
+# или
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Настройка окружения
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Создайте файл `.env` на основе `.env.example`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env
+```
 
-## Learn More
+### Запуск в режиме разработки
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+make dev
+# или
+pnpm dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Откройте [http://localhost:3001](http://localhost:3001) в браузере.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Сборка для продакшена
 
-## Deploy on Vercel
+```bash
+make build
+# или
+pnpm build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Запуск в продакшене
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+make start
+# или
+pnpm start
+```
+
+## Доступные команды
+
+Используйте `make help` для просмотра всех доступных команд:
+
+```bash
+make help
+```
+
+## Технологический стек
+
+- **Framework:** Next.js 15 (App Router)
+- **Styling:** Tailwind CSS
+- **Database:** Prisma ORM
+- **Package Manager:** pnpm
+- **TypeScript:** Full type safety
+
+## Структура проекта
+
+```
+bananabot-admin/
+├── app/                    # Next.js App Router
+│   ├── admin-users/       # Управление админами
+│   ├── analytics/         # Аналитика
+│   ├── api/               # API маршруты
+│   ├── generations/       # История генераций
+│   ├── transactions/      # Транзакции
+│   └── users/             # Управление пользователями
+├── components/            # React компоненты
+├── lib/                   # Утилиты и хелперы
+├── public/                # Статические файлы
+└── scripts/               # Скрипты (например, seed)
+```
+
+## Deployment
+
+### Amvera Cloud
+
+Репозиторий настроен для деплоя на Amvera Cloud:
+
+```bash
+git push amvera main
+```
+
+### Vercel
+
+Также можно задеплоить на [Vercel Platform](https://vercel.com/new):
+
+1. Импортируйте репозиторий в Vercel
+2. Настройте переменные окружения
+3. Деплой произойдет автоматически
+
+## Связь с основным проектом
+
+Этот репозиторий является git submodule основного репозитория BananaBot:
+- **Основной репозиторий:** [applehawk/pb-bananabot](https://github.com/applehawk/pb-bananabot)
+
+## Ресурсы
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
