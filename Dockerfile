@@ -42,22 +42,20 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy package files
+# Copy package files and node_modules from builder
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
+COPY --from=builder /app/node_modules ./node_modules
 
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
-
-# Copy Prisma submodule and generated client
+# Copy Prisma submodule
 COPY --from=builder /app/prisma ./prisma
 
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy built Next.js application
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/scripts ./scripts
 
 # Switch to non-root user
 USER nextjs
@@ -74,4 +72,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
   CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start the application with Prisma migrations
-CMD ["sh", "-c", "cd prisma && pnpm migrate && cd .. && pnpm start"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma && pnpm start"]
