@@ -2,6 +2,30 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface User {
   id: string;
@@ -18,10 +42,16 @@ interface User {
   };
 }
 
+interface DailyStats {
+  date: string;
+  count: number;
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -30,12 +60,49 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       const res = await fetch('/api/users');
-      setUsers(await res.json());
+      const data = await res.json();
+      setUsers(data);
+      calculateStats(data);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateStats = (data: User[]) => {
+    // Calculate daily stats for the last 30 days
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const dailyMap = new Map<string, number>();
+
+    // Initialize all days with 0
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      dailyMap.set(dateStr, 0);
+    }
+
+    // Count new users per day
+    data.forEach(user => {
+      const date = new Date(user.createdAt).toISOString().split('T')[0];
+      if (dailyMap.has(date)) {
+        dailyMap.set(date, (dailyMap.get(date) || 0) + 1);
+      }
+    });
+
+    const stats = Array.from(dailyMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    setDailyStats(stats);
+  };
+
+  const getNewUsersForPeriod = (days: number) => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return users.filter(user => new Date(user.createdAt) >= cutoff).length;
   };
 
   const filteredUsers = users.filter(
@@ -54,6 +121,74 @@ export default function UsersPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Day</div>
+            <div className="text-2xl font-bold text-gray-900">{getNewUsersForPeriod(1)}</div>
+            <div className="text-xs text-gray-400 mt-1">New Users</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Week</div>
+            <div className="text-2xl font-bold text-gray-900">{getNewUsersForPeriod(7)}</div>
+            <div className="text-xs text-gray-400 mt-1">New Users</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Month</div>
+            <div className="text-2xl font-bold text-gray-900">{getNewUsersForPeriod(30)}</div>
+            <div className="text-xs text-gray-400 mt-1">New Users</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Quarter</div>
+            <div className="text-2xl font-bold text-gray-900">{getNewUsersForPeriod(90)}</div>
+            <div className="text-xs text-gray-400 mt-1">New Users</div>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="bg-white p-6 rounded-lg shadow mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Daily User Registrations (Last 30 Days)</h2>
+          <div className="h-64">
+            <Line
+              data={{
+                labels: dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })),
+                datasets: [
+                  {
+                    label: 'New Users',
+                    data: dailyStats.map(stat => stat.count),
+                    borderColor: 'rgb(99, 102, 241)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      precision: 0,
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Search */}
         <div className="mb-6">
           <input
             type="text"
@@ -97,6 +232,7 @@ export default function UsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGenerated}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <Link href={`/generations?userId=${user.id}`} className="text-purple-600 hover:text-purple-900">Generations</Link>
                       <Link href={`/transactions?userId=${user.id}`} className="text-blue-600 hover:text-blue-900">Transactions</Link>
                       <Link href={`/users/${user.id}/settings`} className="text-indigo-600 hover:text-indigo-900">Settings</Link>
                     </td>

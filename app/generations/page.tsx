@@ -1,6 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface Generation {
   id: string;
@@ -12,26 +37,89 @@ interface Generation {
   user: { username: string | null; firstName: string | null; telegramId: string };
 }
 
+interface DailyStats {
+  date: string;
+  count: number;
+}
+
 export default function GenerationsPage() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED'>('COMPLETED');
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
+  const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const searchParams = useSearchParams();
+  const userId = searchParams?.get('userId');
 
-  useEffect(() => {
-    fetchGenerations();
-  }, [typeFilter]);
+  const calculateStats = useCallback((data: Generation[]) => {
+    // Calculate daily stats for the last 30 days
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const dailyMap = new Map<string, number>();
+
+    // Initialize all days with 0
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      dailyMap.set(dateStr, 0);
+    }
+
+    // Count generations per day
+    data.forEach(gen => {
+      const shouldCount = statusFilter === 'ALL' || gen.status === 'COMPLETED';
+      if (shouldCount) {
+        const date = new Date(gen.createdAt).toISOString().split('T')[0];
+        if (dailyMap.has(date)) {
+          dailyMap.set(date, (dailyMap.get(date) || 0) + 1);
+        }
+      }
+    });
+
+    const stats = Array.from(dailyMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    setDailyStats(stats);
+  }, [statusFilter]);
 
   const fetchGenerations = async () => {
     try {
-      const params = typeFilter ? `?type=${typeFilter}` : '';
-      const res = await fetch(`/api/generations${params}`);
-      setGenerations(await res.json());
+      const params = new URLSearchParams();
+      if (typeFilter) params.append('type', typeFilter);
+      if (userId) params.append('userId', userId);
+
+      const queryString = params.toString();
+      const res = await fetch(`/api/generations${queryString ? `?${queryString}` : ''}`);
+      const data = await res.json();
+      setGenerations(data);
+      calculateStats(data);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchGenerations();
+  }, [typeFilter, userId]);
+
+  useEffect(() => {
+    if (generations.length > 0) {
+      calculateStats(generations);
+    }
+  }, [statusFilter, generations, calculateStats]);
+
+  const getStatsForPeriod = (days: number) => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return generations.filter(gen => {
+      const isInPeriod = new Date(gen.createdAt) >= cutoff;
+      const matchesStatus = statusFilter === 'ALL' || gen.status === 'COMPLETED';
+      return isInPeriod && matchesStatus;
+    }).length;
   };
 
   const togglePrompt = (id: string) => {
@@ -46,15 +134,112 @@ export default function GenerationsPage() {
     });
   };
 
+  // Filter generations for display in table
+  const filteredGenerations = generations.filter(gen => {
+    // Apply status filter
+    const matchesStatus = statusFilter === 'ALL' || gen.status === 'COMPLETED';
+
+    // Apply type filter
+    const matchesType = !typeFilter || gen.type === typeFilter;
+
+    return matchesStatus && matchesType;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">🎨 Generations</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            🎨 Generations {userId && <span className="text-blue-600">(Filtered by User)</span>}
+          </h1>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Status Filter */}
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => setStatusFilter('COMPLETED')}
+            className={`px-4 py-2 rounded text-sm font-medium ${statusFilter === 'COMPLETED' ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}
+          >
+            ✅ Completed Only
+          </button>
+          <button
+            onClick={() => setStatusFilter('ALL')}
+            className={`px-4 py-2 rounded text-sm font-medium ${statusFilter === 'ALL' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}
+          >
+            📊 All Generations
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Day</div>
+            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(1)}</div>
+            <div className="text-xs text-gray-400 mt-1">Generations</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Week</div>
+            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(7)}</div>
+            <div className="text-xs text-gray-400 mt-1">Generations</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Month</div>
+            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(30)}</div>
+            <div className="text-xs text-gray-400 mt-1">Generations</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Quarter</div>
+            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(90)}</div>
+            <div className="text-xs text-gray-400 mt-1">Generations</div>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="bg-white p-6 rounded-lg shadow mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Daily Generations (Last 30 Days)</h2>
+          <div className="h-64">
+            <Line
+              data={{
+                labels: dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })),
+                datasets: [
+                  {
+                    label: 'Generations',
+                    data: dailyStats.map(stat => stat.count),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      precision: 0,
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Filter Buttons */}
         <div className="mb-4 flex gap-2">
           <button onClick={() => setTypeFilter('')} className={`px-3 py-1 rounded text-sm font-medium ${!typeFilter ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}>All</button>
           <button onClick={() => setTypeFilter('TEXT_TO_IMAGE')} className={`px-3 py-1 rounded text-sm font-medium ${typeFilter === 'TEXT_TO_IMAGE' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}>Text-to-Image</button>
@@ -67,7 +252,11 @@ export default function GenerationsPage() {
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <>
+            <div className="mb-2 text-sm text-gray-600">
+              Showing {filteredGenerations.length} of {generations.length} generations
+            </div>
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -80,7 +269,7 @@ export default function GenerationsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {generations.map((gen) => (
+                {filteredGenerations.map((gen) => (
                   <tr key={gen.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{gen.user.firstName || gen.user.username}</td>
                     <td className="px-6 py-4 whitespace-nowrap"><span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded">{gen.type}</span></td>
@@ -105,6 +294,7 @@ export default function GenerationsPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </main>
     </div>

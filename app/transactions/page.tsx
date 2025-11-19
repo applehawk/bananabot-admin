@@ -2,6 +2,30 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface Transaction {
   id: string;
@@ -15,11 +39,17 @@ interface Transaction {
   package: { name: string } | null;
 }
 
+interface DailyStats {
+  date: string;
+  revenue: number;
+}
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('createdAt');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
@@ -35,12 +65,57 @@ export default function TransactionsPage() {
       params.append('order', order);
 
       const res = await fetch(`/api/transactions?${params}`);
-      setTransactions(await res.json());
+      const data = await res.json();
+      setTransactions(data);
+      calculateStats(data);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateStats = (data: Transaction[]) => {
+    // Calculate daily revenue stats for the last 30 days
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const dailyMap = new Map<string, number>();
+
+    // Initialize all days with 0
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      dailyMap.set(dateStr, 0);
+    }
+
+    // Sum revenue per day (only COMPLETED transactions with amount)
+    data.forEach(tx => {
+      if (tx.status === 'COMPLETED' && tx.amount) {
+        const date = new Date(tx.createdAt).toISOString().split('T')[0];
+        if (dailyMap.has(date)) {
+          dailyMap.set(date, (dailyMap.get(date) || 0) + tx.amount);
+        }
+      }
+    });
+
+    const stats = Array.from(dailyMap.entries())
+      .map(([date, revenue]) => ({ date, revenue }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    setDailyStats(stats);
+  };
+
+  const getRevenueForPeriod = (days: number) => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return transactions
+      .filter(tx =>
+        new Date(tx.createdAt) >= cutoff &&
+        tx.status === 'COMPLETED' &&
+        tx.amount
+      )
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
   };
 
   const handleSort = (field: string) => {
@@ -61,6 +136,77 @@ export default function TransactionsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Day</div>
+            <div className="text-2xl font-bold text-gray-900">{getRevenueForPeriod(1).toFixed(2)} ₽</div>
+            <div className="text-xs text-gray-400 mt-1">Revenue</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Week</div>
+            <div className="text-2xl font-bold text-gray-900">{getRevenueForPeriod(7).toFixed(2)} ₽</div>
+            <div className="text-xs text-gray-400 mt-1">Revenue</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Month</div>
+            <div className="text-2xl font-bold text-gray-900">{getRevenueForPeriod(30).toFixed(2)} ₽</div>
+            <div className="text-xs text-gray-400 mt-1">Revenue</div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-sm font-medium text-gray-500">1 Quarter</div>
+            <div className="text-2xl font-bold text-gray-900">{getRevenueForPeriod(90).toFixed(2)} ₽</div>
+            <div className="text-xs text-gray-400 mt-1">Revenue</div>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="bg-white p-6 rounded-lg shadow mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Daily Revenue (Last 30 Days)</h2>
+          <div className="h-64">
+            <Line
+              data={{
+                labels: dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })),
+                datasets: [
+                  {
+                    label: 'Revenue (₽)',
+                    data: dailyStats.map(stat => stat.revenue),
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                      label: (context) => `${(context.parsed.y ?? 0).toFixed(2)} ₽`,
+                    },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      callback: (value) => `${value} ₽`,
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Sort Buttons */}
         <div className="mb-4 flex gap-2">
           <button onClick={() => handleSort('createdAt')} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Sort by Date {sortBy === 'createdAt' && (order === 'asc' ? '↑' : '↓')}</button>
           <button onClick={() => handleSort('amount')} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Sort by Amount {sortBy === 'amount' && (order === 'asc' ? '↑' : '↓')}</button>
