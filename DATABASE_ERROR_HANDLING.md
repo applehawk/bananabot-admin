@@ -62,6 +62,7 @@
 
 - `app/page.tsx` - Packages
 - `app/users/page.tsx` - Users
+- `app/admin-users/page.tsx` - Admin Users
 - `app/transactions/page.tsx` - Transactions
 - `app/generations/page.tsx` - Generations
 - `app/analytics/page.tsx` - Analytics
