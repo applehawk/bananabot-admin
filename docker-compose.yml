@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: bananabot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bananabot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bananabot_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-bananabot}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bananabot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bananabot-network
+
+  # Admin panel
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bananabot-admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-3001}:3001"
+    environment:
+      # Database connection
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bananabot}:${POSTGRES_PASSWORD:-bananabot_secret}@postgres:5432/${POSTGRES_DB:-bananabot}?schema=public
+
+      # Next.js settings
+      NODE_ENV: production
+      PORT: 3001
+      HOSTNAME: "0.0.0.0"
+
+      # Add your other environment variables here
+      # NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # NEXTAUTH_URL: ${NEXTAUTH_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bananabot-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  bananabot-network:
+    driver: bridge

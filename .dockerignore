@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Next.js
+.next
+out
+dist
+build
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.docker
+
+# Git
+.git
+.gitignore
+.gitmodules
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Test coverage
+coverage
+
+# Misc
+*.log
+.cache
