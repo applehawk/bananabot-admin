@@ -80,6 +80,38 @@ export default function UsersPage() {
     }
   };
 
+  // Handler to add credits to a user
+  const handleAddCredits = async (userId: string) => {
+    const amountStr = prompt('Enter amount of credits to add:');
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid positive number');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/users/${userId}/add-credits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credits: amount }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const errorMessage = errorData.error || `Failed to add credits (${res.status})`;
+        throw new Error(errorMessage);
+      }
+
+      // Refresh users list
+      await fetchUsers();
+      alert(`✅ Successfully added ${amount} credits`);
+    } catch (err) {
+      console.error('Error adding credits:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      alert(`❌ Error: ${errorMessage}`);
+    }
+  };
+
   const calculateStats = (data: User[]) => {
     // Calculate daily stats for the last 30 days
     const now = new Date();
@@ -247,6 +279,13 @@ export default function UsersPage() {
                       <Link href={`/generations?userId=${user.id}`} className="text-purple-600 hover:text-purple-900">Generations</Link>
                       <Link href={`/transactions?userId=${user.id}`} className="text-blue-600 hover:text-blue-900">Transactions</Link>
                       <Link href={`/users/${user.id}/settings`} className="text-indigo-600 hover:text-indigo-900">Settings</Link>
+                      <button
+                        onClick={() => handleAddCredits(user.id)}
+                        className="ml-2 text-green-600 hover:text-green-800"
+                      >
+                        Add Credits
+                      </button>
+
                     </td>
                   </tr>
                 ))}

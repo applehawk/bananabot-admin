@@ -16,6 +16,7 @@ interface UserSettings {
   useNegativePrompt: boolean;
   notifyOnComplete: boolean;
   notifyOnBonus: boolean;
+  geminiModel: string;
   createdAt: string;
   updatedAt: string;
   user: {
@@ -41,6 +42,7 @@ export default function UserSettingsPage() {
     useNegativePrompt: true,
     notifyOnComplete: true,
     notifyOnBonus: true,
+    geminiModel: 'gemini-2.5-flash-image',
   });
 
   useEffect(() => {
@@ -65,6 +67,7 @@ export default function UserSettingsPage() {
           useNegativePrompt: data.useNegativePrompt,
           notifyOnComplete: data.notifyOnComplete,
           notifyOnBonus: data.notifyOnBonus,
+          geminiModel: data.geminiModel,
         });
       }
     } catch (error) {
@@ -197,6 +200,23 @@ export default function UserSettingsPage() {
                     <option value="de">German</option>
                     <option value="fr">French</option>
                   </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Gemini Model
+                  </label>
+                  <select
+                    value={formData.geminiModel}
+                    onChange={(e) => setFormData({ ...formData, geminiModel: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
+                    <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image Preview</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Select the Gemini model to use for image generation for this user
+                  </p>
                 </div>
               </div>
             </div>
