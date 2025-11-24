@@ -1,3 +1,6 @@
+# ⚠️ WARNING: This docker-compose.yml is for LOCAL DEVELOPMENT ONLY!
+# DO NOT use this file on production VM!
+# For production, use the root docker-compose.yml which includes admin + bot + shared database
 version: '3.8'
 
 services:
@@ -15,7 +18,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bananabot}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bananabot}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +42,6 @@ services:
       NODE_ENV: production
       PORT: 3001
       HOSTNAME: "0.0.0.0"
-
       # Add your other environment variables here
       # NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       # NEXTAUTH_URL: ${NEXTAUTH_URL}
@@ -49,7 +51,7 @@ services:
     networks:
       - bananabot-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
