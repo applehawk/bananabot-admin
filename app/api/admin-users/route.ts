@@ -13,7 +13,7 @@ export async function GET() {
     // Convert BigInt to string for JSON serialization
     const serializedAdmins = admins.map((admin: any) => ({
       ...admin,
-      telegramId: admin.telegramId.toString(),
+      telegramId: admin.telegramId?.toString() || null,
     }));
 
     return NextResponse.json(serializedAdmins);
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const admin = await prisma.adminUser.create({
       data: {
-        telegramId: BigInt(body.telegramId),
+        telegramId: (body.telegramId ? BigInt(body.telegramId) : undefined) as any,
         username: body.username || null,
         role: body.role || 'ADMIN',
       },
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Convert BigInt to string for JSON serialization
     const serializedAdmin = {
       ...admin,
-      telegramId: admin.telegramId.toString(),
+      telegramId: admin.telegramId?.toString() || null,
     };
 
     return NextResponse.json(serializedAdmin, { status: 201 });
