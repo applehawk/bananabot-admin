@@ -21,7 +21,7 @@ async function main() {
             data: {
                 username,
                 password: hashedPassword,
-                telegramId: telegramId as any,
+                ...(telegramId && { telegramId }),
                 role: "ADMIN",
             },
         });
