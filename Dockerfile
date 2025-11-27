@@ -22,6 +22,10 @@ RUN pnpm prisma generate --schema=./prisma/schema.prisma
 # Copy source code
 COPY . .
 
+# Build arguments for Next.js public env vars
+ARG NEXT_PUBLIC_BOT_USERNAME
+ENV NEXT_PUBLIC_BOT_USERNAME=$NEXT_PUBLIC_BOT_USERNAME
+
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
