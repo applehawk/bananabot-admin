@@ -40,7 +40,7 @@ export default function AnalyticsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch('/api/analytics');
+      const res = await fetch('/admin/api/analytics');
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {

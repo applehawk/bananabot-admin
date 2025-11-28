@@ -52,7 +52,7 @@ export default function Sidebar() {
 
       <div className="p-4 border-t border-gray-800">
         <button
-          onClick={() => signOut()}
+          onClick={() => signOut({ callbackUrl: '/admin/login' })}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-gray-800 hover:text-red-300 w-full transition-colors"
         >
           <span className="text-xl">🚪</span>

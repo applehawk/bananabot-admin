@@ -53,7 +53,7 @@ export default function UserSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch(`/api/users/${userId}/settings`);
+      const res = await fetch(`/admin/api/users/${userId}/settings`);
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
@@ -81,7 +81,7 @@ export default function UserSettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await fetch(`/api/users/${userId}/settings`, {
+      await fetch(`/admin/api/users/${userId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

@@ -28,7 +28,7 @@ export default function AdminUsersPage() {
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch('/api/admin-users');
+      const res = await fetch('/admin/api/admin-users');
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {
@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
     }
 
     try {
-      const res = await fetch('/api/admin-users', {
+      const res = await fetch('/admin/api/admin-users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Remove this admin?')) return;
     try {
-      const res = await fetch(`/api/admin-users/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/admin/api/admin-users/${id}`, { method: 'DELETE' });
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {
@@ -115,7 +115,7 @@ export default function AdminUsersPage() {
 
   const handleRoleUpdate = async (id: string, newRole: string) => {
     try {
-      const res = await fetch(`/api/admin-users/${id}`, {
+      const res = await fetch(`/admin/api/admin-users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),

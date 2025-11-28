@@ -93,7 +93,7 @@ function GenerationsContent() {
       if (userId) params.append('userId', userId);
 
       const queryString = params.toString();
-      const res = await fetch(`/api/generations${queryString ? `?${queryString}` : ''}`);
+      const res = await fetch(`/admin/api/generations${queryString ? `?${queryString}` : ''}`);
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {

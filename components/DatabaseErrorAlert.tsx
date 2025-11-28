@@ -34,7 +34,7 @@ export default function DatabaseErrorAlert({ show, onClose }: DatabaseErrorAlert
             <div className="mt-2 text-sm text-red-700">
               <p>Невозможно подключиться к базе данных PostgreSQL.</p>
               <p className="mt-1">
-                Убедитесь, что PostgreSQL запущен на <code className="bg-red-100 px-1 rounded">localhost:5432</code>
+                Убедитесь, что контейнер базы данных запущен и доступен.
               </p>
             </div>
             <div className="mt-3">

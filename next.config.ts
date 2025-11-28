@@ -6,6 +6,17 @@ const nextConfig: NextConfig = {
   // basePath для работы admin панели под /admin
   basePath: '/admin',
   assetPrefix: '/admin',
+
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/admin',
+        permanent: false,
+        basePath: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

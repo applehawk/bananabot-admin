@@ -18,6 +18,7 @@ interface CreditPackage {
   description: string | null;
 }
 
+
 export default function AdminPage() {
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +34,7 @@ export default function AdminPage() {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch('/api/packages');
+      const res = await fetch('/admin/api/packages');
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {
@@ -62,7 +63,7 @@ export default function AdminPage() {
     };
 
     try {
-      const url = editingPackage ? `/api/packages/${editingPackage.id}` : '/api/packages';
+      const url = editingPackage ? `/admin/api/packages/${editingPackage.id}` : '/admin/api/packages';
       const res = await fetch(url, {
         method: editingPackage ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,7 +94,7 @@ export default function AdminPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this package?')) return;
     try {
-      const res = await fetch(`/api/packages/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/admin/api/packages/${id}`, { method: 'DELETE' });
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {

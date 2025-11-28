@@ -66,7 +66,7 @@ function TransactionsContent() {
       params.append('sortBy', sortBy);
       params.append('order', order);
 
-      const res = await fetch(`/api/transactions?${params}`);
+      const res = await fetch(`/admin/api/transactions?${params}`);
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {

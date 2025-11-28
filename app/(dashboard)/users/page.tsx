@@ -61,7 +61,7 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch('/admin/api/users');
       const data = await res.json();
 
       if (res.status === 503 && data.isDatabaseDown) {
@@ -90,7 +90,7 @@ export default function UsersPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/users/${userId}/add-credits`, {
+      const res = await fetch(`/admin/api/users/${userId}/add-credits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credits: amount }),
