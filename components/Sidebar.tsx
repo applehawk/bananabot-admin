@@ -17,9 +17,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  if (pathname === '/login') {
-    return null;
-  }
+
 
   return (
     <div className="w-64 bg-gray-900 min-h-screen text-white flex flex-col">
