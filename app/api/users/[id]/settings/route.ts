@@ -58,7 +58,7 @@ export async function PUT(request: NextRequest, context: RouteParams) {
         useNegativePrompt: data.useNegativePrompt,
         notifyOnComplete: data.notifyOnComplete,
         notifyOnBonus: data.notifyOnBonus,
-        geminiModel: data.geminiModel,
+        geminiModelId: data.geminiModelId,
       },
       create: {
         userId: id,
@@ -71,7 +71,7 @@ export async function PUT(request: NextRequest, context: RouteParams) {
         useNegativePrompt: data.useNegativePrompt,
         notifyOnComplete: data.notifyOnComplete,
         notifyOnBonus: data.notifyOnBonus,
-        geminiModel: data.geminiModel,
+        geminiModelId: data.geminiModelId,
       },
     });
 

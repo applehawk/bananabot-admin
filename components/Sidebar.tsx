@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Transactions', href: '/transactions', icon: '💳' },
   { name: 'Generations', href: '/generations', icon: '🎨' },
   { name: 'Analytics', href: '/analytics', icon: '📊' },
+  { name: 'Tariffs', href: '/tariffs', icon: '🏷️' },
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
 ];
 
