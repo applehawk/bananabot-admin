@@ -39,6 +39,7 @@ type ModelTariff = {
     creditsPerSecond?: number;
     creditsPerGeneration?: number;
     creditPriceUsd?: number;
+    inputImageTokens?: number; // Tokens for input image
     imageTokensLowRes?: number;
     imageTokensHighRes?: number;
     videoTokensPerSecond?: number;
@@ -51,6 +52,7 @@ type ModelTariff = {
     hasImageGeneration: boolean;
     hasVideoGeneration: boolean;
     modelNameOnProvider?: string;
+    endpoints?: { url?: string } | null;
     modelMargin: number;
     isActive: boolean;
     isPreview: boolean;
@@ -66,12 +68,20 @@ export default function TariffsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTariff, setEditingTariff] = useState<ModelTariff | null>(null);
     const [modelType, setModelType] = useState<ModelType>('TEXT');
+    const [syncModelName, setSyncModelName] = useState(true); // Sync modelNameOnProvider with modelId
+
+    // Calculated prices for image generation
+    const [calculatedInputImagePrice, setCalculatedInputImagePrice] = useState<number>(0);
+    const [calculatedLowResPrice, setCalculatedLowResPrice] = useState<number>(0);
+    const [calculatedHighResPrice, setCalculatedHighResPrice] = useState<number>(0);
+
     const [formData, setFormData] = useState<Partial<ModelTariff>>({
         isActive: true,
         hasNativeAudio: false,
         hasImageGeneration: false,
         hasVideoGeneration: false,
         modelMargin: 0,
+        supportedResolutions: [],
     });
 
     useEffect(() => {
@@ -112,6 +122,27 @@ export default function TariffsPage() {
         setFormData(prev => ({ ...prev, ...updates }));
     }, [modelType]);
 
+    // Sync modelNameOnProvider with modelId when sync is enabled
+    useEffect(() => {
+        if (syncModelName && formData.modelId) {
+            setFormData(prev => ({ ...prev, modelNameOnProvider: formData.modelId }));
+        }
+    }, [formData.modelId, syncModelName]);
+
+    // Calculate image generation prices
+    useEffect(() => {
+        const inputPrice = formData.inputPrice || 0;
+        const outputPrice = formData.outputPrice || 0;
+        const inputImageTokens = formData.inputImageTokens || 0;
+        const lowResTokens = formData.imageTokensLowRes || 0;
+        const highResTokens = formData.imageTokensHighRes || 0;
+
+        // Price = (tokens / 1,000,000) * price_per_million
+        setCalculatedInputImagePrice((inputImageTokens / 1_000_000) * inputPrice);
+        setCalculatedLowResPrice((lowResTokens / 1_000_000) * outputPrice);
+        setCalculatedHighResPrice((highResTokens / 1_000_000) * outputPrice);
+    }, [formData.inputPrice, formData.outputPrice, formData.inputImageTokens, formData.imageTokensLowRes, formData.imageTokensHighRes]);
+
     const fetchData = async () => {
         try {
             const [tariffsRes, providersRes] = await Promise.all([
@@ -137,20 +168,19 @@ export default function TariffsPage() {
                 : '/admin/api/tariffs';
             const method = editingTariff ? 'PUT' : 'POST';
 
-            // Convert numeric strings to numbers
+            // Convert numeric strings to numbers, preserve undefined for empty fields
             const payload = {
                 ...formData,
-                inputPrice: Number(formData.inputPrice) || 0,
-                outputPrice: Number(formData.outputPrice) || 0,
-                outputImagePrice: Number(formData.outputImagePrice) || 0,
-                outputVideoPrice: Number(formData.outputVideoPrice) || 0,
-                outputAudioPrice: Number(formData.outputAudioPrice) || 0,
-                creditsPerSecond: Number(formData.creditsPerSecond) || 0,
-                creditsPerGeneration: Number(formData.creditsPerGeneration) || 0,
-                creditPriceUsd: Number(formData.creditPriceUsd) || 0,
+                inputPrice: formData.inputPrice ? Number(formData.inputPrice) : undefined,
+                outputPrice: formData.outputPrice ? Number(formData.outputPrice) : undefined,
+                outputImagePrice: formData.outputImagePrice ? Number(formData.outputImagePrice) : undefined,
+                outputVideoPrice: formData.outputVideoPrice ? Number(formData.outputVideoPrice) : undefined,
+                outputAudioPrice: formData.outputAudioPrice ? Number(formData.outputAudioPrice) : undefined,
+                creditsPerSecond: formData.creditsPerSecond ? Number(formData.creditsPerSecond) : undefined,
                 modelMargin: Number(formData.modelMargin) || 0,
-                imageTokensLowRes: Number(formData.imageTokensLowRes) || 0,
-                imageTokensHighRes: Number(formData.imageTokensHighRes) || 0,
+                imageTokensLowRes: formData.imageTokensLowRes ? Number(formData.imageTokensLowRes) : undefined,
+                imageTokensHighRes: formData.imageTokensHighRes ? Number(formData.imageTokensHighRes) : undefined,
+                maxVideoDuration: formData.maxVideoDuration ? Number(formData.maxVideoDuration) : undefined,
             };
 
             const res = await fetch(url, {
@@ -185,6 +215,7 @@ export default function TariffsPage() {
         if (tariff) {
             setEditingTariff(tariff);
             setFormData(tariff);
+            setSyncModelName(tariff.modelId === tariff.modelNameOnProvider);
             // Infer model type from flags
             if (tariff.hasVideoGeneration) setModelType('VIDEO');
             else if (tariff.hasImageGeneration) setModelType('IMAGE');
@@ -193,6 +224,7 @@ export default function TariffsPage() {
         } else {
             setEditingTariff(null);
             setModelType('TEXT');
+            setSyncModelName(true);
             setFormData({
                 isActive: true,
                 hasNativeAudio: false,
@@ -200,6 +232,7 @@ export default function TariffsPage() {
                 hasVideoGeneration: false,
                 modelMargin: 0,
                 priceUnit: 'per_million_tokens',
+                supportedResolutions: [],
             });
         }
         setIsModalOpen(true);
@@ -378,6 +411,53 @@ export default function TariffsPage() {
                                 />
                             </div>
 
+                            {/* API Details */}
+                            <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
+                                <h3 className="font-semibold text-gray-700">API Details</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-sm font-medium text-gray-700">Model Name on Provider</label>
+                                            <label className="flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={syncModelName}
+                                                    onChange={(e) => {
+                                                        setSyncModelName(e.target.checked);
+                                                        if (e.target.checked && formData.modelId) {
+                                                            setFormData({ ...formData, modelNameOnProvider: formData.modelId });
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 text-blue-600"
+                                                />
+                                                <span className="ml-2 text-xs text-gray-600">Copy from Model ID</span>
+                                            </label>
+                                        </div>
+                                        <input
+                                            value={formData.modelNameOnProvider || ''}
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, modelNameOnProvider: e.target.value });
+                                                setSyncModelName(false);
+                                            }}
+                                            placeholder="e.g. gemini-1.5-pro-002"
+                                            disabled={syncModelName}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Endpoint URL</label>
+                                        <input
+                                            value={(formData.endpoints as any)?.url || ''}
+                                            onChange={(e) =>
+                                                setFormData({ ...formData, endpoints: { url: e.target.value } as any })
+                                            }
+                                            placeholder="https://api.example.com/v1/generate"
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Pricing & Margin */}
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="space-y-2">
@@ -512,6 +592,187 @@ export default function TariffsPage() {
                                 </div>
                             </div>
 
+                            {/* Multimedia Tokens & Alternative Pricing */}
+                            {(modelType === 'IMAGE' || modelType === 'VIDEO' || modelType === 'AUDIO' || modelType === 'MULTIMODAL') && (
+                                <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
+                                    <h3 className="font-semibold text-gray-700">Multimedia Tokens & Pricing</h3>
+
+                                    {(modelType === 'IMAGE' || modelType === 'MULTIMODAL') && (
+                                        <>
+                                            {/* Input Image Section */}
+                                            <div className="border-l-4 border-green-500 pl-4">
+                                                <h4 className="font-medium text-gray-700 mb-3">📥 Input Image Processing</h4>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Tokens per Input Image</label>
+                                                        <input
+                                                            type="number"
+                                                            value={formData.inputImageTokens || ''}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, inputImageTokens: Number(e.target.value) || undefined })
+                                                            }
+                                                            placeholder="e.g. 560"
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">💰 Cost per Input Image</label>
+                                                        <div className="w-full px-3 py-2 border rounded-lg bg-green-50 border-green-200 text-green-900 font-semibold">
+                                                            ${calculatedInputImagePrice.toFixed(6)}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">inputImageTokens × inputPrice / 1M</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Output Image Section */}
+                                            <div className="border-l-4 border-blue-500 pl-4">
+                                                <h4 className="font-medium text-gray-700 mb-3">📤 Output Image Generation</h4>
+                                                <div className="grid grid-cols-3 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Tokens for Low-Res Output (≤2K)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={formData.imageTokensLowRes || ''}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, imageTokensLowRes: Number(e.target.value) || undefined })
+                                                            }
+                                                            placeholder="e.g. 1120"
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Tokens for Hi-Res Output (4K+)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={formData.imageTokensHighRes || ''}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, imageTokensHighRes: Number(e.target.value) || undefined })
+                                                            }
+                                                            placeholder="e.g. 2000"
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Output Image Price ($/1M tokens)</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={formData.outputImagePrice || ''}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, outputImagePrice: Number(e.target.value) || undefined })
+                                                            }
+                                                            placeholder="e.g. 120.00"
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {/* Calculated prices for output */}
+                                                <div className="grid grid-cols-2 gap-4 mt-3">
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">💰 Cost per Low-Res Output</label>
+                                                        <div className="w-full px-3 py-2 border rounded-lg bg-blue-50 border-blue-200 text-blue-900 font-semibold">
+                                                            ${calculatedLowResPrice.toFixed(6)}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">imageTokensLowRes × outputImagePrice / 1M</p>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">💰 Cost per Hi-Res Output</label>
+                                                        <div className="w-full px-3 py-2 border rounded-lg bg-blue-50 border-blue-200 text-blue-900 font-semibold">
+                                                            ${calculatedHighResPrice.toFixed(6)}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">imageTokensHighRes × outputImagePrice / 1M</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {(modelType === 'VIDEO' || modelType === 'AUDIO') && (
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Credits Per Second</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={formData.creditsPerSecond || ''}
+                                                onChange={(e) =>
+                                                    setFormData({ ...formData, creditsPerSecond: Number(e.target.value) || undefined })
+                                                }
+                                                placeholder="e.g. 0.15"
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Technical Parameters */}
+                            <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
+                                <h3 className="font-semibold text-gray-700">Technical Parameters</h3>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {(modelType === 'IMAGE' || modelType === 'MULTIMODAL') && (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-gray-700">Max Image Resolution</label>
+                                                <input
+                                                    value={formData.maxImageResolution || ''}
+                                                    onChange={(e) =>
+                                                        setFormData({ ...formData, maxImageResolution: e.target.value })
+                                                    }
+                                                    placeholder="e.g. 4096x4096"
+                                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-2 col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700">Supported Resolutions</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {['1024x1024', '1024x1792', '1792x1024', '2048x2048', '4096x4096'].map((res) => (
+                                                        <button
+                                                            key={res}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const current = formData.supportedResolutions || [];
+                                                                if (current.includes(res)) {
+                                                                    setFormData({
+                                                                        ...formData,
+                                                                        supportedResolutions: current.filter((r) => r !== res),
+                                                                    });
+                                                                } else {
+                                                                    setFormData({
+                                                                        ...formData,
+                                                                        supportedResolutions: [...current, res],
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`px-3 py-1 rounded-lg text-sm transition-colors ${(formData.supportedResolutions || []).includes(res)
+                                                                ? 'bg-blue-600 text-white'
+                                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                                }`}
+                                                        >
+                                                            {res}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                    {(modelType === 'VIDEO' || modelType === 'MULTIMODAL') && (
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Max Video Duration (seconds)</label>
+                                            <input
+                                                type="number"
+                                                value={formData.maxVideoDuration || ''}
+                                                onChange={(e) =>
+                                                    setFormData({ ...formData, maxVideoDuration: Number(e.target.value) || undefined })
+                                                }
+                                                placeholder="e.g. 60"
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Capabilities Read-only View */}
                             <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
                                 <h3 className="font-semibold text-gray-700">Capabilities (Auto-set by Model Type)</h3>
@@ -563,8 +824,9 @@ export default function TariffsPage() {
                             </div>
                         </form>
                     </div>
-                </div>
-            )}
-        </div>
+                </div >
+            )
+            }
+        </div >
     );
 }
