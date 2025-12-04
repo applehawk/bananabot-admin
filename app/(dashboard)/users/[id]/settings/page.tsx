@@ -62,7 +62,7 @@ export default function UserSettingsPage() {
     try {
       const [settingsRes, tariffsRes] = await Promise.all([
         fetch(`/admin/api/users/${userId}/settings`),
-        fetch('/api/tariffs'),
+        fetch('/admin/api/tariffs'),
       ]);
 
       if (tariffsRes.ok) {

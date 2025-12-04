@@ -8,17 +8,42 @@ export async function PUT(request: NextRequest, context: RouteParams) {
     const { id } = await context.params;
     try {
         const data = await request.json();
-        const tariff = await prisma.geminiModelTariff.update({
+        const tariff = await prisma.modelTariff.update({
             where: { id },
             data: {
                 modelId: data.modelId,
+                providerId: data.providerId,
                 name: data.name,
+                displayName: data.displayName,
+                description: data.description,
                 inputPrice: data.inputPrice,
+                inputLongPrice: data.inputLongPrice,
                 outputPrice: data.outputPrice,
+                outputLongPrice: data.outputLongPrice,
                 outputImagePrice: data.outputImagePrice,
-                imageTokens1K: data.imageTokens1K,
-                imageTokens4K: data.imageTokens4K,
+                outputVideoPrice: data.outputVideoPrice,
+                outputAudioPrice: data.outputAudioPrice,
+                priceUnit: data.priceUnit,
+                creditsPerSecond: data.creditsPerSecond,
+                creditsPerGeneration: data.creditsPerGeneration,
+                creditPriceUsd: data.creditPriceUsd,
+                imageTokensLowRes: data.imageTokensLowRes,
+                imageTokensHighRes: data.imageTokensHighRes,
+                videoTokensPerSecond: data.videoTokensPerSecond,
+                audioTokensPerMinute: data.audioTokensPerMinute,
+                maxTokens: data.maxTokens,
+                maxVideoDuration: data.maxVideoDuration,
+                maxImageResolution: data.maxImageResolution,
+                supportedResolutions: data.supportedResolutions,
+                hasNativeAudio: data.hasNativeAudio,
+                hasImageGeneration: data.hasImageGeneration,
+                hasVideoGeneration: data.hasVideoGeneration,
+                modelNameOnProvider: data.modelNameOnProvider,
+                endpoints: data.endpoints,
+                modelMargin: data.modelMargin,
                 isActive: data.isActive,
+                isPreview: data.isPreview,
+                isSelfHosted: data.isSelfHosted,
             },
         });
         return NextResponse.json(tariff);
@@ -32,7 +57,7 @@ export async function PUT(request: NextRequest, context: RouteParams) {
 export async function DELETE(_request: NextRequest, context: RouteParams) {
     const { id } = await context.params;
     try {
-        await prisma.geminiModelTariff.delete({
+        await prisma.modelTariff.delete({
             where: { id },
         });
         return NextResponse.json({ success: true });

@@ -10,7 +10,15 @@ help:
 	@echo "  make lint           - Run linter"
 	@echo "  make seed           - Seed database with test packages"
 	@echo "  make clean          - Remove build artifacts and cache"
+	@echo "  make clean          - Remove build artifacts and cache"
 	@echo "  make clean-all      - Remove everything (build, deps, cache)"
+	@echo "  make prisma-generate - Generate Prisma Client"
+
+# Generate Prisma Client
+prisma-generate:
+	@echo "Generating Prisma Client..."
+	pnpm prisma generate
+	@echo "✓ Prisma Client generated"
 
 # Install dependencies
 install:

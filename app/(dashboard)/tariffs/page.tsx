@@ -2,425 +2,569 @@
 
 import { useState, useEffect } from 'react';
 
-interface Tariff {
+// Simple Icons
+const PlusIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+);
+const PencilIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+);
+const TrashIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+);
+const LoaderIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+);
+
+type Provider = {
+    id: string;
+    name: string;
+    slug: string;
+};
+
+type ModelTariff = {
     id: string;
     modelId: string;
+    providerId: string;
+    provider?: Provider;
     name: string;
-    inputPrice: number;
-    outputPrice: number;
-    outputImagePrice: number;
-    imageTokens1K: number;
-    imageTokens4K: number;
+    displayName?: string;
+    description?: string;
+    inputPrice?: number;
+    outputPrice?: number;
+    outputImagePrice?: number;
+    outputVideoPrice?: number;
+    outputAudioPrice?: number;
+    priceUnit?: string;
+    creditsPerSecond?: number;
+    creditsPerGeneration?: number;
+    creditPriceUsd?: number;
+    imageTokensLowRes?: number;
+    imageTokensHighRes?: number;
+    videoTokensPerSecond?: number;
+    audioTokensPerMinute?: number;
+    maxTokens?: number;
+    maxVideoDuration?: number;
+    maxImageResolution?: string;
+    supportedResolutions?: string[];
+    hasNativeAudio: boolean;
+    hasImageGeneration: boolean;
+    hasVideoGeneration: boolean;
+    modelNameOnProvider?: string;
+    modelMargin: number;
     isActive: boolean;
-}
+    isPreview: boolean;
+    isSelfHosted: boolean;
+};
 
-interface Settings {
-    usdRubRate: number;
-    hostingCost: number;
-}
+type ModelType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'MULTIMODAL';
 
 export default function TariffsPage() {
-    const [tariffs, setTariffs] = useState<Tariff[]>([]);
-    const [settings, setSettings] = useState<Settings>({ usdRubRate: 100, hostingCost: 0 });
+    const [tariffs, setTariffs] = useState<ModelTariff[]>([]);
+    const [providers, setProviders] = useState<Provider[]>([]);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-
-    // New Tariff Form State
-    const [newTariff, setNewTariff] = useState({
-        modelId: '',
-        name: '',
-        inputPrice: 0,
-        outputPrice: 0,
-        outputImagePrice: 0,
-        imageTokens1K: 1120,
-        imageTokens4K: 2000,
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTariff, setEditingTariff] = useState<ModelTariff | null>(null);
+    const [modelType, setModelType] = useState<ModelType>('TEXT');
+    const [formData, setFormData] = useState<Partial<ModelTariff>>({
+        isActive: true,
+        hasNativeAudio: false,
+        hasImageGeneration: false,
+        hasVideoGeneration: false,
+        modelMargin: 0,
     });
 
     useEffect(() => {
         fetchData();
     }, []);
 
+    // Effect to update boolean flags based on model type
+    useEffect(() => {
+        const updates: Partial<ModelTariff> = {};
+        switch (modelType) {
+            case 'TEXT':
+                updates.hasImageGeneration = false;
+                updates.hasVideoGeneration = false;
+                updates.hasNativeAudio = false;
+                break;
+            case 'IMAGE':
+                updates.hasImageGeneration = true;
+                updates.hasVideoGeneration = false;
+                updates.hasNativeAudio = false;
+                break;
+            case 'VIDEO':
+                updates.hasImageGeneration = false;
+                updates.hasVideoGeneration = true;
+                updates.hasNativeAudio = false; // Usually video models handle audio implicitly or separately
+                break;
+            case 'AUDIO':
+                updates.hasImageGeneration = false;
+                updates.hasVideoGeneration = false;
+                updates.hasNativeAudio = true;
+                break;
+            case 'MULTIMODAL':
+                // Keep existing flags or set defaults? Let's default to all enabled for now or let user toggle
+                updates.hasImageGeneration = true;
+                updates.hasVideoGeneration = true;
+                updates.hasNativeAudio = true;
+                break;
+        }
+        setFormData(prev => ({ ...prev, ...updates }));
+    }, [modelType]);
+
     const fetchData = async () => {
-        setLoading(true);
         try {
-            const [tariffsRes, settingsRes, exchangeRateRes] = await Promise.all([
+            const [tariffsRes, providersRes] = await Promise.all([
                 fetch('/admin/api/tariffs'),
-                fetch('/admin/api/settings'),
-                fetch('/admin/api/exchange-rate'),
+                fetch('/admin/api/providers'),
             ]);
-
-            if (tariffsRes.ok) {
-                setTariffs(await tariffsRes.json());
-            }
-
-            let currentSettings = { usdRubRate: 100, hostingCost: 0 };
-            if (settingsRes.ok) {
-                currentSettings = await settingsRes.json();
-            }
-
-            // Auto-populate with current exchange rate if fetch succeeds
-            if (exchangeRateRes.ok) {
-                const exchangeData = await exchangeRateRes.json();
-                currentSettings.usdRubRate = exchangeData.usdRubRate;
-            }
-
-            setSettings(currentSettings);
+            const tariffsData = await tariffsRes.json();
+            const providersData = await providersRes.json();
+            setTariffs(tariffsData);
+            setProviders(providersData);
         } catch (error) {
-            console.error('Failed to fetch data', error);
+            alert('Failed to fetch data');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreateTariff = async () => {
-        if (!newTariff.modelId || !newTariff.name) return;
-        setSaving(true);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         try {
-            const res = await fetch('/admin/api/tariffs', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newTariff),
-            });
-            if (res.ok) {
-                setNewTariff({
-                    modelId: '',
-                    name: '',
-                    inputPrice: 0,
-                    outputPrice: 0,
-                    outputImagePrice: 0,
-                    imageTokens1K: 1120,
-                    imageTokens4K: 2000,
-                });
-                fetchData();
-            }
-        } finally {
-            setSaving(false);
-        }
-    };
+            const url = editingTariff
+                ? `/admin/api/tariffs/${editingTariff.id}`
+                : '/admin/api/tariffs';
+            const method = editingTariff ? 'PUT' : 'POST';
 
-    const handleUpdateTariff = async (id: string, data: Partial<Tariff>) => {
-        try {
-            await fetch(`/admin/api/tariffs/${id}`, {
-                method: 'PUT',
+            // Convert numeric strings to numbers
+            const payload = {
+                ...formData,
+                inputPrice: Number(formData.inputPrice) || 0,
+                outputPrice: Number(formData.outputPrice) || 0,
+                outputImagePrice: Number(formData.outputImagePrice) || 0,
+                outputVideoPrice: Number(formData.outputVideoPrice) || 0,
+                outputAudioPrice: Number(formData.outputAudioPrice) || 0,
+                creditsPerSecond: Number(formData.creditsPerSecond) || 0,
+                creditsPerGeneration: Number(formData.creditsPerGeneration) || 0,
+                creditPriceUsd: Number(formData.creditPriceUsd) || 0,
+                modelMargin: Number(formData.modelMargin) || 0,
+                imageTokensLowRes: Number(formData.imageTokensLowRes) || 0,
+                imageTokensHighRes: Number(formData.imageTokensHighRes) || 0,
+            };
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
+                body: JSON.stringify(payload),
             });
-            // Optimistic update or refetch
-            setTariffs(tariffs.map(t => t.id === id ? { ...t, ...data } : t));
+
+            if (!res.ok) throw new Error('Failed to save tariff');
+
+            setIsModalOpen(false);
+            fetchData();
         } catch (error) {
-            console.error('Failed to update tariff', error);
+            alert('Failed to save tariff');
         }
     };
 
-    const handleDeleteTariff = async (id: string) => {
+    const handleDelete = async (id: string) => {
         if (!confirm('Are you sure?')) return;
+
         try {
-            await fetch(`/admin/api/tariffs/${id}`, {
-                method: 'DELETE',
-            });
-            setTariffs(tariffs.filter(t => t.id !== id));
+            const res = await fetch(`/admin/api/tariffs/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete tariff');
+
+            fetchData();
         } catch (error) {
-            console.error('Failed to delete tariff', error);
+            alert('Failed to delete tariff');
         }
     };
 
-    const handleUpdateSettings = async () => {
-        setSaving(true);
-        try {
-            await fetch('/admin/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(settings),
+    const openModal = (tariff?: ModelTariff) => {
+        if (tariff) {
+            setEditingTariff(tariff);
+            setFormData(tariff);
+            // Infer model type from flags
+            if (tariff.hasVideoGeneration) setModelType('VIDEO');
+            else if (tariff.hasImageGeneration) setModelType('IMAGE');
+            else if (tariff.hasNativeAudio) setModelType('AUDIO');
+            else setModelType('TEXT');
+        } else {
+            setEditingTariff(null);
+            setModelType('TEXT');
+            setFormData({
+                isActive: true,
+                hasNativeAudio: false,
+                hasImageGeneration: false,
+                hasVideoGeneration: false,
+                modelMargin: 0,
+                priceUnit: 'per_million_tokens',
             });
-        } finally {
-            setSaving(false);
         }
+        setIsModalOpen(true);
     };
 
-    const calculateRubPrice = (usdPrice: number) => {
-        return (usdPrice * settings.usdRubRate).toFixed(2);
-    };
-
-    const calculatePriceFromTokens = (tokens: number, outputPricePerMillion: number) => {
-        // tokens - количество токенов для генерации
-        // outputPricePerMillion - цена за 1M токенов в USD
-        // Формула: (tokens / 1,000,000) × цена за 1M токенов
-        return ((tokens / 1_000_000) * outputPricePerMillion).toFixed(3);
-    };
-
-    if (loading) return <div className="p-8">Loading...</div>;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <LoaderIcon />
+            </div>
+        );
+    }
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold">Tariffs & Pricing</h1>
-                <button onClick={fetchData} className="px-3 py-2 hover:bg-gray-100 rounded-lg">
-                    🔄 Refresh
+        <div className="p-8 space-y-8 bg-gray-50 min-h-screen text-gray-900">
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold">Model Tariffs</h1>
+                <button
+                    onClick={() => openModal()}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    <PlusIcon />
+                    Add Tariff
                 </button>
             </div>
 
-            {/* Global Settings */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border space-y-4">
-                <h2 className="text-xl font-semibold">Global Settings</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="relative">
-                        <label className="block text-sm font-medium text-gray-700">USD/RUB Rate</label>
-                        <div className="flex gap-2 items-start">
-                            <div className="flex-1">
+            <div className="bg-white border rounded-lg shadow overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-4 font-semibold text-gray-600">Name</th>
+                            <th className="p-4 font-semibold text-gray-600">Model ID</th>
+                            <th className="p-4 font-semibold text-gray-600">Provider</th>
+                            <th className="p-4 font-semibold text-gray-600">Price Unit</th>
+                            <th className="p-4 font-semibold text-gray-600">Input Price</th>
+                            <th className="p-4 font-semibold text-gray-600">Output Price</th>
+                            <th className="p-4 font-semibold text-gray-600">Margin</th>
+                            <th className="p-4 font-semibold text-gray-600">Status</th>
+                            <th className="p-4 font-semibold text-gray-600 w-[100px]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                        {tariffs.map((tariff) => (
+                            <tr key={tariff.id} className="hover:bg-gray-50">
+                                <td className="p-4 font-medium">{tariff.name}</td>
+                                <td className="p-4 text-gray-600">{tariff.modelId}</td>
+                                <td className="p-4 text-gray-600">{tariff.provider?.name || '-'}</td>
+                                <td className="p-4 text-gray-600">{tariff.priceUnit}</td>
+                                <td className="p-4 text-gray-600">${tariff.inputPrice}</td>
+                                <td className="p-4 text-gray-600">${tariff.outputPrice}</td>
+                                <td className="p-4 text-gray-600">{(tariff.modelMargin * 100).toFixed(0)}%</td>
+                                <td className="p-4">
+                                    <span
+                                        className={`px-2 py-1 rounded-full text-xs ${tariff.isActive
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-red-100 text-red-800'
+                                            }`}
+                                    >
+                                        {tariff.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td className="p-4">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => openModal(tariff)}
+                                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        >
+                                            <PencilIcon />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(tariff.id)}
+                                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b">
+                            <h2 className="text-xl font-bold">
+                                {editingTariff ? 'Edit Tariff' : 'Add Tariff'}
+                            </h2>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            {/* Top Row: Provider, Model ID, Model Type */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Provider</label>
+                                    <select
+                                        value={formData.providerId}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, providerId: e.target.value })
+                                        }
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                    >
+                                        <option value="">Select Provider</option>
+                                        {providers.map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Model ID</label>
+                                    <input
+                                        required
+                                        value={formData.modelId || ''}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, modelId: e.target.value })
+                                        }
+                                        placeholder="e.g. gemini-1.5-pro"
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Model Type</label>
+                                    <select
+                                        value={modelType}
+                                        onChange={(e: any) => setModelType(e.target.value)}
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                    >
+                                        <option value="TEXT">Text Generation</option>
+                                        <option value="IMAGE">Image Generation</option>
+                                        <option value="VIDEO">Video Generation</option>
+                                        <option value="AUDIO">Audio Generation</option>
+                                        <option value="MULTIMODAL">Multimodal</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Name & Description */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Name</label>
+                                    <input
+                                        required
+                                        value={formData.name || ''}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, name: e.target.value })
+                                        }
+                                        placeholder="e.g. Gemini 1.5 Pro"
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Display Name</label>
+                                    <input
+                                        value={formData.displayName || ''}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, displayName: e.target.value })
+                                        }
+                                        placeholder="e.g. Gemini 1.5 Pro (Preview)"
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">Description</label>
                                 <input
-                                    type="number"
-                                    value={settings.usdRubRate}
-                                    onChange={(e) => setSettings({ ...settings, usdRubRate: parseFloat(e.target.value) })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                    value={formData.description || ''}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, description: e.target.value })
+                                    }
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        const res = await fetch('/admin/api/exchange-rate');
-                                        const data = await res.json();
-                                        setSettings({ ...settings, usdRubRate: data.usdRubRate });
-                                        alert(`Rate updated: ${data.usdRubRate} RUB (from ${data.source})`);
-                                    } catch (error) {
-                                        alert('Failed to fetch exchange rate');
-                                    }
-                                }}
-                                className="mt-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm"
-                                title="Fetch current exchange rate"
-                            >
-                                🌐 Fetch
-                            </button>
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">Current market rate will be fetched from exchangerate-api.com</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Hosting Cost (Monthly/Base)</label>
-                        <input
-                            type="number"
-                            value={settings.hostingCost}
-                            onChange={(e) => setSettings({ ...settings, hostingCost: parseFloat(e.target.value) })}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                        />
-                    </div>
-                    <div className="flex items-end">
-                        <button
-                            onClick={handleUpdateSettings}
-                            type="submit"
-                            disabled={saving}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
-                        >
-                            {saving ? '⏳ Updating...' : '� Update Settings'}
-                        </button>
-                    </div>
-                </div>
-            </div>
 
-            {/* Create New Tariff */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border space-y-4">
-                <h2 className="text-xl font-semibold">Add New Model Tariff</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input
-                        placeholder="Model ID (e.g. gemini-2.5-flash)"
-                        value={newTariff.modelId}
-                        onChange={(e) => setNewTariff({ ...newTariff, modelId: e.target.value })}
-                        className="border p-2 rounded"
-                    />
-                    <input
-                        placeholder="Display Name"
-                        value={newTariff.name}
-                        onChange={(e) => setNewTariff({ ...newTariff, name: e.target.value })}
-                        className="border p-2 rounded"
-                    />
-                    <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="text-xs text-gray-500">Input Price ($/1M tokens)</label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={newTariff.inputPrice}
-                                onChange={(e) => setNewTariff({ ...newTariff, inputPrice: parseFloat(e.target.value) })}
-                                className="border p-2 rounded w-full"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500">Output Text Price ($/1M tokens)</label>
-                            <p className="text-xs text-gray-400 mb-1">текст и размышления</p>
-                            <input
-                                type="number"
-                                step="0.01"
-                                placeholder="12.00"
-                                value={newTariff.outputPrice}
-                                onChange={(e) => setNewTariff({ ...newTariff, outputPrice: parseFloat(e.target.value) })}
-                                className="border p-2 rounded w-full"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500">Output Image Price ($/1M tokens)</label>
-                            <p className="text-xs text-gray-400 mb-1">изображения</p>
-                            <input
-                                type="number"
-                                step="0.01"
-                                placeholder="120.00"
-                                value={newTariff.outputImagePrice}
-                                onChange={(e) => setNewTariff({ ...newTariff, outputImagePrice: parseFloat(e.target.value) })}
-                                className="border p-2 rounded w-full"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500">Image 1K/2K Tokens</label>
-                            <p className="text-xs text-gray-400 mb-1">токенов на генерацию</p>
-                            <input
-                                type="number"
-                                step="1"
-                                placeholder="1120"
-                                value={newTariff.imageTokens1K}
-                                onChange={(e) => setNewTariff({ ...newTariff, imageTokens1K: parseInt(e.target.value) || 0 })}
-                                className="border p-2 rounded w-full"
-                            />
-                            {newTariff.outputImagePrice > 0 && (
-                                <p className="text-xs text-green-600 mt-1">
-                                    ≈ ${calculatePriceFromTokens(newTariff.imageTokens1K, newTariff.outputImagePrice)}/изобр.
-                                </p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500">Image 4K Tokens</label>
-                            <p className="text-xs text-gray-400 mb-1">токенов на генерацию</p>
-                            <input
-                                type="number"
-                                step="1"
-                                placeholder="2000"
-                                value={newTariff.imageTokens4K}
-                                onChange={(e) => setNewTariff({ ...newTariff, imageTokens4K: parseInt(e.target.value) || 0 })}
-                                className="border p-2 rounded w-full"
-                            />
-                            {newTariff.outputImagePrice > 0 && (
-                                <p className="text-xs text-green-600 mt-1">
-                                    ≈ ${calculatePriceFromTokens(newTariff.imageTokens4K, newTariff.outputImagePrice)}/изобр.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        onClick={handleCreateTariff}
-                        disabled={saving || !newTariff.modelId}
-                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 w-fit"
-                    >
-                        ➕ Add Tariff
-                    </button>
-                </div>
-            </div>
-
-            {/* Tariff List & Calculator */}
-            <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Active Tariffs</h2>
-                <div className="grid gap-6">
-                    {tariffs.map((tariff) => (
-                        <div key={tariff.id} className="bg-white p-6 rounded-lg shadow-sm border flex flex-col gap-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-bold">{tariff.name}</h3>
-                                    <code className="text-sm text-gray-500 bg-gray-100 px-1 rounded">{tariff.modelId}</code>
+                            {/* Pricing & Margin */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Price Unit</label>
+                                    <select
+                                        value={formData.priceUnit}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, priceUnit: e.target.value })
+                                        }
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                    >
+                                        <option value="per_million_tokens">Per Million Tokens</option>
+                                        <option value="per_second">Per Second</option>
+                                        <option value="per_credit">Per Credit</option>
+                                        <option value="per_generation">Per Generation</option>
+                                    </select>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">Model Margin (0.1 = 10%)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.modelMargin || 0}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, modelMargin: Number(e.target.value) })
+                                        }
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="flex items-center space-x-2 pt-8">
+                                    <label className="flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.isActive}
+                                            onChange={(e) =>
+                                                setFormData({ ...formData, isActive: e.target.checked })
+                                            }
+                                            className="sr-only peer"
+                                        />
+                                        <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        <span className="ms-3 text-sm font-medium text-gray-700">Active</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Dynamic Pricing Fields based on Model Type */}
+                            <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
+                                <h3 className="font-semibold text-gray-700">Pricing Details</h3>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {(modelType === 'TEXT' || modelType === 'MULTIMODAL') && (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-gray-700">Input Price ($/1M)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.000001"
+                                                    value={formData.inputPrice || 0}
+                                                    onChange={(e) =>
+                                                        setFormData({ ...formData, inputPrice: Number(e.target.value) })
+                                                    }
+                                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-gray-700">Output Price ($/1M)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.000001"
+                                                    value={formData.outputPrice || 0}
+                                                    onChange={(e) =>
+                                                        setFormData({ ...formData, outputPrice: Number(e.target.value) })
+                                                    }
+                                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {(modelType === 'IMAGE' || modelType === 'MULTIMODAL') && (
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Image Price ($/1M Tokens)</label>
+                                            <input
+                                                type="number"
+                                                step="0.000001"
+                                                value={formData.outputImagePrice || 0}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        outputImagePrice: Number(e.target.value),
+                                                    })
+                                                }
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {(modelType === 'VIDEO' || modelType === 'MULTIMODAL') && (
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Video Price ($/sec)</label>
+                                            <input
+                                                type="number"
+                                                step="0.000001"
+                                                value={formData.outputVideoPrice || 0}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        outputVideoPrice: Number(e.target.value),
+                                                    })
+                                                }
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {(modelType === 'AUDIO' || modelType === 'MULTIMODAL') && (
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Audio Price ($/min)</label>
+                                            <input
+                                                type="number"
+                                                step="0.000001"
+                                                value={formData.outputAudioPrice || 0}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        outputAudioPrice: Number(e.target.value),
+                                                    })
+                                                }
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Capabilities Read-only View */}
+                            <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
+                                <h3 className="font-semibold text-gray-700">Capabilities (Auto-set by Model Type)</h3>
+                                <div className="flex gap-6">
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.hasImageGeneration}
+                                            readOnly
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
+                                        />
+                                        <label className="text-sm font-medium text-gray-700">Image Gen</label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.hasVideoGeneration}
+                                            readOnly
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
+                                        />
+                                        <label className="text-sm font-medium text-gray-700">Video Gen</label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.hasNativeAudio}
+                                            readOnly
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
+                                        />
+                                        <label className="text-sm font-medium text-gray-700">Audio</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-4 border-t mt-6">
                                 <button
-                                    onClick={() => handleDeleteTariff(tariff.id)}
-                                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
                                 >
-                                    🗑️ Delete
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                                >
+                                    Save
                                 </button>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                                {/* Input Price */}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-500">Input ($/1M tokens)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={tariff.inputPrice}
-                                        onChange={(e) => handleUpdateTariff(tariff.id, { inputPrice: parseFloat(e.target.value) })}
-                                        className="border p-2 rounded w-full"
-                                    />
-                                    <div className="text-xs text-gray-400">
-                                        ≈ {calculateRubPrice(tariff.inputPrice)} RUB/1M
-                                    </div>
-                                </div>
-
-                                {/* Output Text Price */}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-500">Output Text ($/1M tokens)</label>
-                                    <p className="text-xs text-gray-400 mb-1">текст и размышления</p>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={tariff.outputPrice}
-                                        onChange={(e) => handleUpdateTariff(tariff.id, { outputPrice: parseFloat(e.target.value) })}
-                                        className="border p-2 rounded w-full"
-                                    />
-                                    <div className="text-xs text-gray-400">
-                                        ≈ {calculateRubPrice(tariff.outputPrice)} RUB/1M
-                                    </div>
-                                </div>
-
-                                {/* Output Image Price */}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-500">Output Image ($/1M tokens)</label>
-                                    <p className="text-xs text-gray-400 mb-1">изображения</p>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={tariff.outputImagePrice}
-                                        onChange={(e) => handleUpdateTariff(tariff.id, { outputImagePrice: parseFloat(e.target.value) })}
-                                        className="border p-2 rounded w-full"
-                                    />
-                                    <div className="text-xs text-gray-400">
-                                        ≈ {calculateRubPrice(tariff.outputImagePrice)} RUB/1M
-                                    </div>
-                                </div>
-
-                                {/* Image 1K Tokens */}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-500">Image 1K/2K Tokens</label>
-                                    <p className="text-xs text-gray-400 mb-1">токенов на генерацию</p>
-                                    <input
-                                        type="number"
-                                        step="1"
-                                        value={tariff.imageTokens1K}
-                                        onChange={(e) => handleUpdateTariff(tariff.id, { imageTokens1K: parseInt(e.target.value) || 0 })}
-                                        className="border p-2 rounded w-full"
-                                    />
-                                    <div className="text-xs text-gray-400">
-                                        ≈ ${calculatePriceFromTokens(tariff.imageTokens1K, tariff.outputImagePrice)}/изобр.
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                        ≈ {calculateRubPrice(parseFloat(calculatePriceFromTokens(tariff.imageTokens1K, tariff.outputImagePrice)))} RUB
-                                    </div>
-                                </div>
-
-                                {/* Image 4K Tokens */}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium text-gray-500">Image 4K Tokens</label>
-                                    <p className="text-xs text-gray-400 mb-1">токенов на генерацию</p>
-                                    <input
-                                        type="number"
-                                        step="1"
-                                        value={tariff.imageTokens4K}
-                                        onChange={(e) => handleUpdateTariff(tariff.id, { imageTokens4K: parseInt(e.target.value) || 0 })}
-                                        className="border p-2 rounded w-full"
-                                    />
-                                    <div className="text-xs text-gray-400">
-                                        ≈ ${calculatePriceFromTokens(tariff.imageTokens4K, tariff.outputImagePrice)}/изобр.
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                        ≈ {calculateRubPrice(parseFloat(calculatePriceFromTokens(tariff.imageTokens4K, tariff.outputImagePrice)))} RUB
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                        </form>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

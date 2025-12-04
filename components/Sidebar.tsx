@@ -11,14 +11,13 @@ const navigation = [
   { name: 'Generations', href: '/generations', icon: '🎨' },
   { name: 'Analytics', href: '/analytics', icon: '📊' },
   { name: 'Tariffs', href: '/tariffs', icon: '🏷️' },
+  { name: 'Providers', href: '/providers', icon: '🔌' },
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-
-
 
   return (
     <div className="w-64 bg-gray-900 min-h-screen text-white flex flex-col">
