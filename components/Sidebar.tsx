@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Tariffs', href: '/tariffs', icon: '🏷️' },
   { name: 'Providers', href: '/providers', icon: '🔌' },
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
+  { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 
 export default function Sidebar() {

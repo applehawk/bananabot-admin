@@ -15,6 +15,7 @@ export async function GET(_request: NextRequest, context: RouteParams) {
             username: true,
             firstName: true,
             telegramId: true,
+            personalMargin: true,
           },
         },
       },
@@ -58,7 +59,7 @@ export async function PUT(request: NextRequest, context: RouteParams) {
         useNegativePrompt: data.useNegativePrompt,
         notifyOnComplete: data.notifyOnComplete,
         notifyOnBonus: data.notifyOnBonus,
-        geminiModelId: data.geminiModelId,
+        selectedModelId: data.selectedModelId,
       },
       create: {
         userId: id,
@@ -71,9 +72,17 @@ export async function PUT(request: NextRequest, context: RouteParams) {
         useNegativePrompt: data.useNegativePrompt,
         notifyOnComplete: data.notifyOnComplete,
         notifyOnBonus: data.notifyOnBonus,
-        geminiModelId: data.geminiModelId,
+        selectedModelId: data.selectedModelId,
       },
     });
+
+    // Update user's personal margin if provided
+    if (data.personalMargin !== undefined) {
+      await prisma.user.update({
+        where: { id },
+        data: { personalMargin: parseFloat(data.personalMargin) },
+      });
+    }
 
     return NextResponse.json(settings);
   } catch (error) {

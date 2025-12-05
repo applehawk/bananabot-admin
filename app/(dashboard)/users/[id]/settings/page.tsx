@@ -16,14 +16,15 @@ interface UserSettings {
   useNegativePrompt: boolean;
   notifyOnComplete: boolean;
   notifyOnBonus: boolean;
-  geminiModelId: string;
+  selectedModelId: string;
   createdAt: string;
   updatedAt: string;
   user: {
     username: string | null;
     firstName: string | null;
     telegramId: string;
-  };
+    personalMargin: number;
+  }
 }
 
 interface Tariff {
@@ -49,7 +50,8 @@ export default function UserSettingsPage() {
     useNegativePrompt: true,
     notifyOnComplete: true,
     notifyOnBonus: true,
-    geminiModelId: 'gemini-2.5-flash-image',
+    selectedModelId: 'gemini-2.5-flash-image',
+    personalMargin: 0,
   });
 
   useEffect(() => {
@@ -82,7 +84,8 @@ export default function UserSettingsPage() {
           useNegativePrompt: data.useNegativePrompt,
           notifyOnComplete: data.notifyOnComplete,
           notifyOnBonus: data.notifyOnBonus,
-          geminiModelId: data.geminiModelId || 'gemini-2.5-flash-image',
+          selectedModelId: data.selectedModelId, // Changed from geminiModelId
+          personalMargin: data.user.personalMargin || 0,
         });
       }
     } catch (error) {
@@ -149,6 +152,26 @@ export default function UserSettingsPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* User Margin */}
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Financial Settings</h2>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  User Margin (0.10 = 10%)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.personalMargin}
+                  onChange={(e) => setFormData({ ...formData, personalMargin: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Extra margin applied to this specific user's generations.
+                </p>
+              </div>
+            </div>
+
             {/* Generation Settings */}
             <div>
               <h2 className="text-xl font-semibold mb-4">Generation Settings</h2>
@@ -222,9 +245,10 @@ export default function UserSettingsPage() {
                     Gemini Model
                   </label>
                   <select
-                    value={formData.geminiModelId}
-                    onChange={(e) => setFormData({ ...formData, geminiModelId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    id="selectedModelId"
+                    value={formData.selectedModelId}
+                    onChange={(e) => setFormData({ ...formData, selectedModelId: e.target.value })}
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     {tariffs.length > 0 ? (
                       tariffs.map((tariff) => (
