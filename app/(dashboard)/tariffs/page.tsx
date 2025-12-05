@@ -133,15 +133,16 @@ export default function TariffsPage() {
     useEffect(() => {
         const inputPrice = formData.inputPrice || 0;
         const outputPrice = formData.outputPrice || 0;
+        const outputImagePrice = formData.outputImagePrice || 0;
         const inputImageTokens = formData.inputImageTokens || 0;
         const lowResTokens = formData.imageTokensLowRes || 0;
         const highResTokens = formData.imageTokensHighRes || 0;
 
         // Price = (tokens / 1,000,000) * price_per_million
         setCalculatedInputImagePrice((inputImageTokens / 1_000_000) * inputPrice);
-        setCalculatedLowResPrice((lowResTokens / 1_000_000) * outputPrice);
-        setCalculatedHighResPrice((highResTokens / 1_000_000) * outputPrice);
-    }, [formData.inputPrice, formData.outputPrice, formData.inputImageTokens, formData.imageTokensLowRes, formData.imageTokensHighRes]);
+        setCalculatedLowResPrice((lowResTokens / 1_000_000) * outputImagePrice);
+        setCalculatedHighResPrice((highResTokens / 1_000_000) * outputImagePrice);
+    }, [formData.inputPrice, formData.outputPrice, formData.outputImagePrice, formData.inputImageTokens, formData.imageTokensLowRes, formData.imageTokensHighRes]);
 
     const fetchData = async () => {
         try {
@@ -504,93 +505,82 @@ export default function TariffsPage() {
                             </div>
 
                             {/* Dynamic Pricing Fields based on Model Type */}
-                            <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
-                                <h3 className="font-semibold text-gray-700">Pricing Details</h3>
-                                <div className="grid grid-cols-3 gap-4">
-                                    {(modelType === 'TEXT' || modelType === 'MULTIMODAL') && (
-                                        <>
+                            {modelType !== 'IMAGE' && (
+                                <div className="border p-4 rounded-lg space-y-4 bg-gray-50">
+                                    <h3 className="font-semibold text-gray-700">Pricing Details</h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        {(modelType === 'TEXT' || modelType === 'MULTIMODAL') && (
+                                            <>
+                                                {modelType === 'TEXT' && (
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Input Price ($/1M)</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.000001"
+                                                            value={formData.inputPrice || 0}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, inputPrice: Number(e.target.value) })
+                                                            }
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div className="space-y-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                        {modelType === 'MULTIMODAL' ? 'Text Output Price ($/1M)' : 'Output Price ($/1M)'}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.000001"
+                                                        value={formData.outputPrice || 0}
+                                                        onChange={(e) =>
+                                                            setFormData({ ...formData, outputPrice: Number(e.target.value) })
+                                                        }
+                                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {(modelType === 'VIDEO' || modelType === 'MULTIMODAL') && (
                                             <div className="space-y-2">
-                                                <label className="block text-sm font-medium text-gray-700">Input Price ($/1M)</label>
+                                                <label className="block text-sm font-medium text-gray-700">Video Price ($/sec)</label>
                                                 <input
                                                     type="number"
                                                     step="0.000001"
-                                                    value={formData.inputPrice || 0}
+                                                    value={formData.outputVideoPrice || 0}
                                                     onChange={(e) =>
-                                                        setFormData({ ...formData, inputPrice: Number(e.target.value) })
+                                                        setFormData({
+                                                            ...formData,
+                                                            outputVideoPrice: Number(e.target.value),
+                                                        })
                                                     }
                                                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                                 />
                                             </div>
+                                        )}
+
+                                        {(modelType === 'AUDIO' || modelType === 'MULTIMODAL') && (
                                             <div className="space-y-2">
-                                                <label className="block text-sm font-medium text-gray-700">Output Price ($/1M)</label>
+                                                <label className="block text-sm font-medium text-gray-700">Audio Price ($/min)</label>
                                                 <input
                                                     type="number"
                                                     step="0.000001"
-                                                    value={formData.outputPrice || 0}
+                                                    value={formData.outputAudioPrice || 0}
                                                     onChange={(e) =>
-                                                        setFormData({ ...formData, outputPrice: Number(e.target.value) })
+                                                        setFormData({
+                                                            ...formData,
+                                                            outputAudioPrice: Number(e.target.value),
+                                                        })
                                                     }
                                                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                                 />
                                             </div>
-                                        </>
-                                    )}
-
-                                    {(modelType === 'IMAGE' || modelType === 'MULTIMODAL') && (
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-700">Image Price ($/1M Tokens)</label>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                value={formData.outputImagePrice || 0}
-                                                onChange={(e) =>
-                                                    setFormData({
-                                                        ...formData,
-                                                        outputImagePrice: Number(e.target.value),
-                                                    })
-                                                }
-                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {(modelType === 'VIDEO' || modelType === 'MULTIMODAL') && (
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-700">Video Price ($/sec)</label>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                value={formData.outputVideoPrice || 0}
-                                                onChange={(e) =>
-                                                    setFormData({
-                                                        ...formData,
-                                                        outputVideoPrice: Number(e.target.value),
-                                                    })
-                                                }
-                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {(modelType === 'AUDIO' || modelType === 'MULTIMODAL') && (
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-700">Audio Price ($/min)</label>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                value={formData.outputAudioPrice || 0}
-                                                onChange={(e) =>
-                                                    setFormData({
-                                                        ...formData,
-                                                        outputAudioPrice: Number(e.target.value),
-                                                    })
-                                                }
-                                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+
+                            )}
 
                             {/* Multimedia Tokens & Alternative Pricing */}
                             {(modelType === 'IMAGE' || modelType === 'VIDEO' || modelType === 'AUDIO' || modelType === 'MULTIMODAL') && (
@@ -602,7 +592,19 @@ export default function TariffsPage() {
                                             {/* Input Image Section */}
                                             <div className="border-l-4 border-green-500 pl-4">
                                                 <h4 className="font-medium text-gray-700 mb-3">📥 Input Image Processing</h4>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-3 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Image Input Price ($/1M Tokens)</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.000001"
+                                                            value={formData.inputPrice || 0}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, inputPrice: Number(e.target.value) })
+                                                            }
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
                                                     <div className="space-y-2">
                                                         <label className="block text-sm font-medium text-gray-700">Tokens per Input Image</label>
                                                         <input
@@ -630,6 +632,19 @@ export default function TariffsPage() {
                                                 <h4 className="font-medium text-gray-700 mb-3">📤 Output Image Generation</h4>
                                                 <div className="grid grid-cols-3 gap-4">
                                                     <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Output Image Price ($/1M tokens)</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={formData.outputImagePrice || ''}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, outputImagePrice: Number(e.target.value) || undefined })
+                                                            }
+                                                            placeholder="e.g. 120.00"
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
                                                         <label className="block text-sm font-medium text-gray-700">Tokens for Low-Res Output (≤2K)</label>
                                                         <input
                                                             type="number"
@@ -650,19 +665,6 @@ export default function TariffsPage() {
                                                                 setFormData({ ...formData, imageTokensHighRes: Number(e.target.value) || undefined })
                                                             }
                                                             placeholder="e.g. 2000"
-                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <label className="block text-sm font-medium text-gray-700">Output Image Price ($/1M tokens)</label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={formData.outputImagePrice || ''}
-                                                            onChange={(e) =>
-                                                                setFormData({ ...formData, outputImagePrice: Number(e.target.value) || undefined })
-                                                            }
-                                                            placeholder="e.g. 120.00"
                                                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                                         />
                                                     </div>
