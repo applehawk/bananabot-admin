@@ -16,6 +16,7 @@ interface UserSettings {
   useNegativePrompt: boolean;
   notifyOnComplete: boolean;
   notifyOnBonus: boolean;
+  isSubscriptionRequired: boolean;
   selectedModelId: string;
   createdAt: string;
   updatedAt: string;
@@ -50,6 +51,7 @@ export default function UserSettingsPage() {
     useNegativePrompt: true,
     notifyOnComplete: true,
     notifyOnBonus: true,
+    isSubscriptionRequired: true,
     selectedModelId: 'gemini-2.5-flash-image',
     personalMargin: 0,
   });
@@ -84,6 +86,7 @@ export default function UserSettingsPage() {
           useNegativePrompt: data.useNegativePrompt,
           notifyOnComplete: data.notifyOnComplete,
           notifyOnBonus: data.notifyOnBonus,
+          isSubscriptionRequired: data.isSubscriptionRequired ?? true,
           selectedModelId: data.selectedModelId, // Changed from geminiModelId
           personalMargin: data.user.personalMargin || 0,
         });
@@ -330,6 +333,25 @@ export default function UserSettingsPage() {
                   />
                   <span className="text-sm">Notify on Bonus</span>
                 </label>
+              </div>
+            </div>
+
+            {/* Access Settings */}
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Access Control</h2>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.isSubscriptionRequired}
+                    onChange={(e) => setFormData({ ...formData, isSubscriptionRequired: e.target.checked })}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Require Channel Subscription</span>
+                </label>
+                <p className="text-xs text-gray-500 ml-6">
+                  If unchecked, this specific user will NOT be required to subscribe, even if globally enabled.
+                </p>
               </div>
             </div>
 

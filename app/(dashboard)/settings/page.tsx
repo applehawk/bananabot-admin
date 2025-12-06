@@ -9,6 +9,8 @@ interface SystemSettings {
     freeCreditsAmount: number;
     hostingCost: number;
     usdRubRate: number;
+    telegramChannelId?: string | null;
+    isSubscriptionRequired: boolean;
 }
 
 export default function SettingsPage() {

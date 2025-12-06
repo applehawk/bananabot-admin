@@ -59,6 +59,7 @@ export async function PUT(request: NextRequest, context: RouteParams) {
         useNegativePrompt: data.useNegativePrompt,
         notifyOnComplete: data.notifyOnComplete,
         notifyOnBonus: data.notifyOnBonus,
+        isSubscriptionRequired: data.isSubscriptionRequired,
         selectedModelId: data.selectedModelId,
       },
       create: {
@@ -72,6 +73,7 @@ export async function PUT(request: NextRequest, context: RouteParams) {
         useNegativePrompt: data.useNegativePrompt,
         notifyOnComplete: data.notifyOnComplete,
         notifyOnBonus: data.notifyOnBonus,
+        isSubscriptionRequired: data.isSubscriptionRequired,
         selectedModelId: data.selectedModelId,
       },
     });

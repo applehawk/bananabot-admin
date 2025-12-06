@@ -13,6 +13,8 @@ export async function GET() {
                 systemMargin: 0,
                 creditsPerUsd: 100,
                 freeCreditsAmount: 3,
+                telegramChannelId: '',
+                isSubscriptionRequired: false,
             },
         });
 
@@ -29,7 +31,7 @@ export async function GET() {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { systemMargin, creditsPerUsd, freeCreditsAmount, hostingCost, usdRubRate } = body;
+        const { systemMargin, creditsPerUsd, freeCreditsAmount, hostingCost, usdRubRate, telegramChannelId, isSubscriptionRequired } = body;
 
         const settings = await prisma.systemSettings.update({
             where: { key: 'singleton' },
@@ -39,6 +41,8 @@ export async function PUT(request: Request) {
                 freeCreditsAmount: parseFloat(freeCreditsAmount),
                 hostingCost: parseFloat(hostingCost),
                 usdRubRate: parseFloat(usdRubRate),
+                telegramChannelId: telegramChannelId,
+                isSubscriptionRequired: isSubscriptionRequired,
             },
         });
 

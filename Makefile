@@ -20,6 +20,12 @@ prisma-generate:
 	pnpm prisma generate
 	@echo "✓ Prisma Client generated"
 
+# Apply pending migrations (deploy)
+migrate-deploy:
+	@echo "Applying pending migrations..."
+	export $$(grep -v '^#' .env | xargs) && export DATABASE_URL=$$(echo $$DATABASE_URL | sed 's/postgres:5432/localhost:5432/') && pnpm prisma migrate deploy
+	@echo "✓ Migrations applied"
+
 # Install dependencies
 install:
 	@echo "Installing dependencies with pnpm..."

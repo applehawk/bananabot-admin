@@ -21,6 +21,8 @@ export default function BroadcastsPage() {
     const [message, setMessage] = useState('');
     const [isCreating, setIsCreating] = useState(false);
 
+    const [targetNotSubscribed, setTargetNotSubscribed] = useState(false);
+
     useEffect(() => {
         fetchBroadcasts();
         // Poll for updates every 5 seconds
@@ -50,11 +52,15 @@ export default function BroadcastsPage() {
             const res = await fetch('/admin/api/broadcasts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({
+                    message,
+                    targetNotSubscribed
+                }),
             });
 
             if (res.ok) {
                 setMessage('');
+                setTargetNotSubscribed(false);
                 fetchBroadcasts();
             } else {
                 alert('Failed to create broadcast');
@@ -89,14 +95,26 @@ export default function BroadcastsPage() {
                 {/* Create Broadcast */}
                 <div className="bg-white p-6 rounded-lg shadow mb-8">
                     <h2 className="text-lg font-medium text-gray-900 mb-4">New Broadcast</h2>
-                    <div className="flex gap-4">
+                    <div className="space-y-4">
                         <textarea
-                            className="flex-1 p-2 border rounded-md"
+                            className="w-full p-2 border rounded-md"
                             rows={3}
                             placeholder="Message to all users..."
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                         />
+                        <div className="flex items-center">
+                            <input
+                                id="targetNotSubscribed"
+                                type="checkbox"
+                                checked={targetNotSubscribed}
+                                onChange={(e) => setTargetNotSubscribed(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="targetNotSubscribed" className="ml-2 block text-sm text-gray-900">
+                                Send ONLY to users who are NOT subscribed to the channel
+                            </label>
+                        </div>
                     </div>
                     <div className="mt-4 text-right">
                         <button
