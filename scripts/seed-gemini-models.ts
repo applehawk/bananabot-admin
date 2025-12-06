@@ -149,6 +149,84 @@ async function main() {
             isPreview: false,
         },
 
+        // === Gemini 2.5 Flash Preview ===
+        {
+            modelId: 'gemini-2.5-flash-preview-09-2025',
+            name: 'Gemini 2.5 Flash Preview',
+            displayName: 'Gemini 2.5 Flash Preview',
+            description: 'The latest model based on the 2.5 Flash model. Best for large scale processing and agentic use cases.',
+            inputPrice: 0.30,
+            outputPrice: 2.50,
+            priceUnit: 'per_million_tokens',
+            hasImageGeneration: false,
+            hasVideoGeneration: false,
+            hasNativeAudio: false,
+            isPreview: true,
+        },
+
+        // === Gemini 2.5 Flash-Lite Preview ===
+        {
+            modelId: 'gemini-2.5-flash-lite-preview-09-2025',
+            name: 'Gemini 2.5 Flash-Lite Preview',
+            displayName: 'Gemini 2.5 Flash-Lite Preview',
+            description: 'The latest model based on Gemini 2.5 Flash lite optimized for cost-efficiency.',
+            inputPrice: 0.10,
+            outputPrice: 0.40,
+            priceUnit: 'per_million_tokens',
+            hasImageGeneration: false,
+            hasVideoGeneration: false,
+            hasNativeAudio: false,
+            isPreview: true,
+        },
+
+        // === Gemini 2.5 Flash Native Audio ===
+        {
+            modelId: 'gemini-2.5-flash-native-audio-preview-09-2025',
+            name: 'Gemini 2.5 Flash Native Audio',
+            displayName: 'Gemini 2.5 Flash Native Audio',
+            description: 'Native audio models optimized for higher quality audio outputs.',
+            inputPrice: 0.50, // Text input
+            outputPrice: 2.00, // Text output
+            outputAudioPrice: 12.00, // Audio output
+            priceUnit: 'per_million_tokens',
+            hasImageGeneration: false,
+            hasVideoGeneration: false,
+            hasNativeAudio: true,
+            isPreview: true,
+        },
+
+        // === Gemini 2.5 Flash Preview TTS ===
+        {
+            modelId: 'gemini-2.5-flash-preview-tts',
+            name: 'Gemini 2.5 Flash TTS',
+            displayName: 'Gemini 2.5 Flash TTS',
+            description: 'Text-to-speech audio model optimized for price-performant speech generation.',
+            inputPrice: 0.50,
+            outputPrice: 0,
+            outputAudioPrice: 10.00,
+            priceUnit: 'per_million_tokens',
+            hasImageGeneration: false,
+            hasVideoGeneration: false,
+            hasNativeAudio: true,
+            isPreview: true,
+        },
+
+        // === Gemini 2.5 Pro Preview TTS ===
+        {
+            modelId: 'gemini-2.5-pro-preview-tts',
+            name: 'Gemini 2.5 Pro TTS',
+            displayName: 'Gemini 2.5 Pro TTS',
+            description: 'Text-to-speech audio model optimized for powerful speech generation.',
+            inputPrice: 1.00,
+            outputPrice: 0,
+            outputAudioPrice: 20.00,
+            priceUnit: 'per_million_tokens',
+            hasImageGeneration: false,
+            hasVideoGeneration: false,
+            hasNativeAudio: true,
+            isPreview: true,
+        },
+
         // === Imagen 4 ===
         {
             modelId: 'imagen-4.0-generate-001',
