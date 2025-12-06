@@ -48,7 +48,7 @@ async function main() {
         }
         console.log(`✅ Fetched ${remoteColumns.length} columns from remote DB.`);
     } catch (e) {
-        console.warn('⚠️  Could not fetch remote schema (proceeding with static analysis only):', e.message.split('\n')[0]);
+        console.warn('⚠️  Could not fetch remote schema (proceeding with static analysis only):', (e as any).message.split('\n')[0]);
     }
 
 
