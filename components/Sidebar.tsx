@@ -11,6 +11,7 @@ const navigation = [
   { name: 'Generations', href: '/generations', icon: '🎨' },
   { name: 'Analytics', href: '/analytics', icon: '📊' },
   { name: 'Tariffs', href: '/tariffs', icon: '🏷️' },
+  { name: 'Broadcasts', href: '/broadcasts', icon: '📢' },
   { name: 'Providers', href: '/providers', icon: '🔌' },
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },

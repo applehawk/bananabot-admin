@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
+import GenerationDetailsModal from '@/components/GenerationDetailsModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,10 +33,28 @@ interface Generation {
   id: string;
   type: string;
   prompt: string;
+  negativePrompt?: string | null;
+  enhancedPrompt?: string | null;
   status: string;
   creditsUsed: number;
   createdAt: string;
+  completedAt?: string | null;
+  imageUrl?: string | null;
+  thumbnailUrl?: string | null;
+  errorMessage?: string | null;
+  processingTime?: number | null;
+  aspectRatio?: string;
+  numberOfImages?: number;
+  safetyLevel?: string;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  totalCostUsd?: number | null;
+  costDetails?: any;
+  metadata?: any;
   user: { username: string | null; firstName: string | null; telegramId: string };
+  model?: { name: string; providerId: string } | null;
+  inputImages?: { fileUrl: string | null }[];
 }
 
 interface DailyStats {
@@ -51,6 +70,8 @@ function GenerationsContent() {
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [databaseError, setDatabaseError] = useState(false);
+  const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
@@ -139,7 +160,8 @@ function GenerationsContent() {
     }).length;
   };
 
-  const togglePrompt = (id: string) => {
+  const togglePrompt = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setExpandedPrompts(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -149,6 +171,11 @@ function GenerationsContent() {
       }
       return newSet;
     });
+  };
+
+  const handleRowClick = (generation: Generation) => {
+    setSelectedGeneration(generation);
+    setIsModalOpen(true);
   };
 
   // Filter generations for display in table
@@ -165,6 +192,12 @@ function GenerationsContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
+      <GenerationDetailsModal
+        generation={selectedGeneration}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
 
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -289,7 +322,11 @@ function GenerationsContent() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredGenerations.map((gen) => (
-                    <tr key={gen.id} className="hover:bg-gray-50">
+                    <tr
+                      key={gen.id}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick(gen)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{gen.user.firstName || gen.user.username}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded">{gen.type}</span></td>
                       <td className="px-6 py-4 text-sm max-w-md">
@@ -298,7 +335,7 @@ function GenerationsContent() {
                         </div>
                         {gen.prompt.length > 100 && (
                           <button
-                            onClick={() => togglePrompt(gen.id)}
+                            onClick={(e) => togglePrompt(gen.id, e)}
                             className="text-blue-600 hover:text-blue-800 text-xs mt-1 font-medium"
                           >
                             {expandedPrompts.has(gen.id) ? 'Collapse' : 'Expand...'}

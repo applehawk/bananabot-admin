@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as util from 'util';
 
+
 const execAsync = util.promisify(exec);
 
 // Configuration
@@ -17,20 +18,19 @@ interface ColumnInfo {
     data_type: string;
 }
 
-interface Migration {
-    name: string;
-    path: string;
-    sql: string;
-    status: 'applied' | 'pending' | 'failed';
-}
-
 async function main() {
-    console.log('🔍 Starting Database Diagnosis...');
+    const args = process.argv.slice(2);
+    const isLocal = args.includes('--local');
 
-    // 1. Get Remote Schema
-    console.log('📡 Fetching remote database schema...');
-    // We try to get CSV output. If it fails, we continue with empty schema (just static analysis)
-    const schemaCmdCsv = `${REMOTE_SSH_CMD} --command="cd ~/bananabot && sudo docker compose exec -T postgres psql -U bananabot -d bananabot -A -F, -c \\"SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public'\\""`;
+    console.log(`🔍 Starting Database Diagnosis (${isLocal ? 'LOCAL' : 'REMOTE'})...`);
+
+    // 1. Get Schema
+    console.log(`📡 Fetching ${isLocal ? 'local' : 'remote'} database schema...`);
+
+    const psqlCommand = `sudo docker compose exec -T postgres psql -U bananabot -d bananabot -A -F, -c \\"SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public'\\"`;
+    const schemaCmdCsv = isLocal
+        ? psqlCommand.replace('sudo ', '') // Local usually doesn't need sudo for docker if configured, or just try without
+        : `${REMOTE_SSH_CMD} --command="cd ~/bananabot && ${psqlCommand}"`;
 
     let remoteColumns: ColumnInfo[] = [];
     try {
@@ -46,15 +46,17 @@ async function main() {
                 });
             }
         }
-        console.log(`✅ Fetched ${remoteColumns.length} columns from remote DB.`);
+        console.log(`✅ Fetched ${remoteColumns.length} columns.`);
     } catch (e) {
-        console.warn('⚠️  Could not fetch remote schema (proceeding with static analysis only):', (e as any).message.split('\n')[0]);
+        console.warn('⚠️  Could not fetch schema:', (e as any).message.split('\n')[0]);
     }
 
-
-    // 2. Get Remote Migration Status
-    console.log('📡 Fetching remote migration status...');
-    const migrationStatusCmd = `${REMOTE_SSH_CMD} --command="cd ~/bananabot && sudo docker compose exec -T postgres psql -U bananabot -d bananabot -A -F, -c \\"SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at\\""`;
+    // 2. Get Migration Status
+    console.log(`📡 Fetching ${isLocal ? 'local' : 'remote'} migration status...`);
+    const statusPsql = `sudo docker compose exec -T postgres psql -U bananabot -d bananabot -A -F, -c \\"SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at\\"`;
+    const migrationStatusCmd = isLocal
+        ? statusPsql.replace('sudo ', '')
+        : `${REMOTE_SSH_CMD} --command="cd ~/bananabot && ${statusPsql}"`;
 
     const appliedMigrations = new Set<string>();
     try {
@@ -141,11 +143,11 @@ function findIntegrityProbems(sql: string): string[] {
 
     // 1. Find columns with DEFAULTS being added
     // Match: ALTER TABLE "Table" ... ADD COLUMN "Col" ... DEFAULT 'Val'
-    const defaultValRegex = /ALTER\s+TABLE\s+"?(\w+)"?\s+.*?ADD\s+COLUMN\s+"?(\w+)"?.*?DEFAULT\s+'([^']+)'/gis;
+    const defaultValRegex = /ALTER\s+TABLE\s+"?(\w+)"?\s+[\s\S]*?ADD\s+COLUMN\s+"?(\w+)"?[\s\S]*?DEFAULT\s+'([^']+)'/gi;
 
     // 2. Find FK Constraints
     // Match: ALTER TABLE "Table" ADD CONSTRAINT "Name" FOREIGN KEY ("Col") REFERENCES "RefTable"("RefCol")
-    const fkRegex = /ALTER\s+TABLE\s+"?(\w+)"?\s+ADD\s+CONSTRAINT\s+"?(\w+)"?\s+FOREIGN\s+KEY\s*\("?(\w+)"?\)\s*REFERENCES\s+"?(\w+)"?\("?(\w+)"?\)/gis;
+    const fkRegex = /ALTER\s+TABLE\s+"?(\w+)"?\s+ADD\s+CONSTRAINT\s+"?(\w+)"?\s+FOREIGN\s+KEY\s*\("?(\w+)"?\)\s*REFERENCES\s+"?(\w+)"?\("?(\w+)"?\)/gi;
 
     const defaults = [];
     let match;

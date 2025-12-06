@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
+import SendMessageModal from '@/components/SendMessageModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -54,6 +55,10 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [databaseError, setDatabaseError] = useState(false);
+
+  // Modal State
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ id: string, username?: string } | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -154,9 +159,24 @@ export default function UsersPage() {
       user.telegramId.includes(searchTerm)
   );
 
+  const handleSendMessage = (user: User) => {
+    setSelectedUser({ id: user.id, username: user.username || user.firstName });
+    setIsMessageModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <DatabaseErrorAlert show={databaseError} onClose={() => setDatabaseError(false)} />
+
+      {/* Modal */}
+      {selectedUser && (
+        <SendMessageModal
+          userId={selectedUser.id}
+          username={selectedUser.username}
+          isOpen={isMessageModalOpen}
+          onClose={() => setIsMessageModalOpen(false)}
+        />
+      )}
 
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -276,6 +296,12 @@ export default function UsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGenerated}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleSendMessage(user)}
+                        className="text-blue-500 hover:text-blue-700 font-medium"
+                      >
+                        Message
+                      </button>
                       <Link href={`/generations?userId=${user.id}`} className="text-purple-600 hover:text-purple-900">Generations</Link>
                       <Link href={`/transactions?userId=${user.id}`} className="text-blue-600 hover:text-blue-900">Transactions</Link>
                       <Link href={`/users/${user.id}/settings`} className="text-indigo-600 hover:text-indigo-900">Settings</Link>

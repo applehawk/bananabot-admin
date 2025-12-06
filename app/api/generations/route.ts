@@ -25,6 +25,12 @@ export async function GET(request: NextRequest) {
           },
         },
         inputImages: true,
+        model: {
+          select: {
+            name: true,
+            providerId: true,
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
