@@ -1,8 +1,8 @@
 
 export async function sendTelegramMessage(chatId: string | number, text: string): Promise<{ success: boolean; error?: string }> {
-    const botToken = process.env.BOT_TOKEN;
+    const botToken = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) {
-        console.warn('BOT_TOKEN is not defined in environment variables');
+        console.warn('BOT_TOKEN (or TELEGRAM_BOT_TOKEN) is not defined in environment variables');
         return { success: false, error: 'Configuration error: BOT_TOKEN missing' };
     }
 
