@@ -50,9 +50,9 @@ export default function GenerationDetailsModal({ generation, isOpen, onClose }: 
                             <div className="mt-1 flex gap-2">
                                 <span className="font-mono text-xs text-gray-500">{generation.id}</span>
                                 <span className={`px-2 py-0.5 text-xs font-medium rounded ${generation.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                        generation.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
-                                            generation.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                                                'bg-gray-100 text-gray-800'
+                                    generation.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                                        generation.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
                                     }`}>
                                     {generation.status}
                                 </span>
@@ -154,7 +154,7 @@ export default function GenerationDetailsModal({ generation, isOpen, onClose }: 
 
                                     <div>
                                         <span className="block text-gray-500 text-xs uppercase font-bold mb-1">Model</span>
-                                        <div className="text-sm font-medium">
+                                        <div className="text-sm font-medium text-gray-900">
                                             {generation.model?.name || 'Unknown'}
                                             {generation.model?.providerId && (
                                                 <span className="ml-1 text-xs text-gray-500">({generation.model.providerId})</span>
@@ -163,7 +163,7 @@ export default function GenerationDetailsModal({ generation, isOpen, onClose }: 
                                     </div>
                                     <div>
                                         <span className="block text-gray-500 text-xs uppercase font-bold mb-1">Created At</span>
-                                        <div className="text-sm">
+                                        <div className="text-sm text-gray-900">
                                             {new Date(generation.createdAt).toLocaleString()}
                                         </div>
                                     </div>
@@ -181,14 +181,14 @@ export default function GenerationDetailsModal({ generation, isOpen, onClose }: 
                                     </div>
                                     <div>
                                         <span className="block text-gray-500 text-xs uppercase font-bold mb-1">Processing Time</span>
-                                        <div className="text-sm">
+                                        <div className="text-sm text-gray-900">
                                             {generation.processingTime ? `${(generation.processingTime / 1000).toFixed(1)}s` : '-'}
                                         </div>
                                     </div>
 
                                     <div>
                                         <span className="block text-gray-500 text-xs uppercase font-bold mb-1">Aspect Ratio</span>
-                                        <div className="text-sm">{generation.aspectRatio || '-'}</div>
+                                        <div className="text-sm text-gray-900">{generation.aspectRatio || '-'}</div>
                                     </div>
                                     <div>
                                         <span className="block text-gray-500 text-xs uppercase font-bold mb-1">Safety Level</span>
@@ -201,15 +201,15 @@ export default function GenerationDetailsModal({ generation, isOpen, onClose }: 
                                     <div className="grid grid-cols-3 gap-2 text-center">
                                         <div className="bg-gray-50 p-2 rounded">
                                             <div className="text-xs text-gray-500">Input</div>
-                                            <div className="font-mono text-sm">{generation.inputTokens || 0}</div>
+                                            <div className="font-mono text-sm text-gray-900">{generation.inputTokens || 0}</div>
                                         </div>
                                         <div className="bg-gray-50 p-2 rounded">
                                             <div className="text-xs text-gray-500">Output</div>
-                                            <div className="font-mono text-sm">{generation.outputTokens || 0}</div>
+                                            <div className="font-mono text-sm text-gray-900">{generation.outputTokens || 0}</div>
                                         </div>
                                         <div className="bg-gray-50 p-2 rounded">
                                             <div className="text-xs text-gray-500">Total</div>
-                                            <div className="font-mono text-sm font-bold">{generation.totalTokens || 0}</div>
+                                            <div className="font-mono text-sm font-bold text-gray-900">{generation.totalTokens || 0}</div>
                                         </div>
                                     </div>
                                 </div>

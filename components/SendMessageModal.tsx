@@ -123,7 +123,7 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
                                                 {msg.isBroadcast ? 'BROADCAST' : 'DIRECT'} - {msg.status}
                                             </span>
                                         </div>
-                                        <p className="whitespace-pre-wrap">{msg.message}</p>
+                                        <p className="whitespace-pre-wrap text-gray-800">{msg.message}</p>
                                         {msg.error && <p className="text-red-500 text-xs mt-1">Error: {msg.error}</p>}
                                     </div>
                                 ))

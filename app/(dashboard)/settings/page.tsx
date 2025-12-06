@@ -167,6 +167,41 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
+                        {/* Telegram Subscription */}
+                        <div>
+                            <h2 className="text-xl font-semibold mb-4">Telegram Subscription</h2>
+                            <div className="space-y-4">
+                                <div className="flex items-center">
+                                    <input
+                                        id="subscription-required"
+                                        type="checkbox"
+                                        checked={settings.isSubscriptionRequired}
+                                        onChange={(e) => setSettings({ ...settings, isSubscriptionRequired: e.target.checked })}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <label htmlFor="subscription-required" className="ml-2 block text-sm text-gray-900">
+                                        Require Channel Subscription
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Telegram Channel ID (e.g. @channelname or -100...)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.telegramChannelId || ''}
+                                        onChange={(e) => setSettings({ ...settings, telegramChannelId: e.target.value })}
+                                        placeholder="@channelname"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        The bot must be an admin in this channel to verify subscriptions.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Submit */}
                         <div className="flex justify-end pt-4">
                             <button
