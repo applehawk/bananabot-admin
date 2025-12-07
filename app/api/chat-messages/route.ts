@@ -33,8 +33,17 @@ export async function GET(request: Request) {
             prisma.chatMessage.count({ where })
         ]);
 
+        // Serialize BigInt to string to avoid JSON errors
+        const serializedMessages = messages.map((msg: any) => ({
+            ...msg,
+            user: {
+                ...msg.user,
+                telegramId: msg.user.telegramId.toString()
+            }
+        }));
+
         return NextResponse.json({
-            messages,
+            messages: serializedMessages,
             pagination: {
                 total,
                 pages: Math.ceil(total / limit),
