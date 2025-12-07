@@ -15,6 +15,8 @@ export async function GET() {
                 freeCreditsAmount: 3,
                 telegramChannelId: '',
                 isSubscriptionRequired: false,
+                referralBonusAmount: 50,
+                referralFirstPurchaseBonus: 150,
             },
         });
 
@@ -31,7 +33,7 @@ export async function GET() {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { systemMargin, creditsPerUsd, freeCreditsAmount, hostingCost, usdRubRate, telegramChannelId, isSubscriptionRequired } = body;
+        const { systemMargin, creditsPerUsd, freeCreditsAmount, hostingCost, usdRubRate, telegramChannelId, isSubscriptionRequired, referralBonusAmount, referralFirstPurchaseBonus } = body;
 
         const settings = await prisma.systemSettings.update({
             where: { key: 'singleton' },
@@ -43,6 +45,8 @@ export async function PUT(request: Request) {
                 usdRubRate: parseFloat(usdRubRate),
                 telegramChannelId: telegramChannelId,
                 isSubscriptionRequired: isSubscriptionRequired,
+                referralBonusAmount: parseFloat(referralBonusAmount),
+                referralFirstPurchaseBonus: parseFloat(referralFirstPurchaseBonus),
             },
         });
 

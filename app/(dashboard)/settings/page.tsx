@@ -11,6 +11,7 @@ interface SystemSettings {
     usdRubRate: number;
     telegramChannelId?: string | null;
     isSubscriptionRequired: boolean;
+    referralBonusAmount: number;
 }
 
 export default function SettingsPage() {
@@ -131,6 +132,38 @@ export default function SettingsPage() {
                                         onChange={(e) => setSettings({ ...settings, freeCreditsAmount: parseFloat(e.target.value) })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Referral Bonus Amount (Credits)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="1"
+                                        value={settings.referralBonusAmount}
+                                        onChange={(e) => setSettings({ ...settings, referralBonusAmount: parseFloat(e.target.value) })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Amount of credits given to the referrer when a new user joins.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        First Purchase Bonus (Credits)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="1"
+                                        value={settings.referralFirstPurchaseBonus}
+                                        onChange={(e) => setSettings({ ...settings, referralFirstPurchaseBonus: parseFloat(e.target.value) })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Bonus given to the referrer when their invited user makes their FIRST purchase.
+                                    </p>
                                 </div>
                             </div>
                         </div>
