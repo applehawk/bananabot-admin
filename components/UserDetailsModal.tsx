@@ -355,6 +355,41 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                                     </div>
                                 </div>
 
+                                {/* Referral Stats */}
+                                <div className="bg-white p-4 rounded shadow-sm">
+                                    <h4 className="font-semibold text-gray-700 mb-2">Referral Information</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                        <div>
+                                            <span className="text-gray-500">Referral Code:</span>
+                                            <div className="font-mono bg-gray-100 px-2 py-0.5 rounded w-fit">{data.user.referralCode}</div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Invited By:</span>
+                                            <div>
+                                                {data.stats.referrals?.invitedBy ? (
+                                                    <span className="text-blue-600">
+                                                        {data.stats.referrals.invitedBy.firstName || data.stats.referrals.invitedBy.username}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400">None</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Total Referrals:</span>
+                                            <div className="font-bold text-lg">{data.stats.referrals?.count || 0}</div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Paying Users:</span>
+                                            <div className="font-bold text-lg text-green-600">{data.stats.referrals?.payingCount || 0}</div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Earned from Refs:</span>
+                                            <div className="font-bold text-green-600">+{data.stats.referrals?.totalEarned?.toFixed(1) || 0} Cr</div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Metadata / Details */}
                                 <div className="bg-white p-4 rounded shadow-sm">
                                     <h4 className="font-semibold text-gray-700 mb-2">Technical Details</h4>

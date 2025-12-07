@@ -155,6 +155,35 @@ export async function GET(
             }
         });
 
+
+        // 5. Referral Statistics
+        const referredBy = user.referredBy ? await prisma.user.findFirst({
+            where: { referralCode: user.referredBy },
+            select: { id: true, username: true, firstName: true, telegramId: true }
+        }) : null;
+
+        const referralsCount = await prisma.referral.count({
+            where: { referrerId: userId }
+        });
+
+        const payingReferralsCount = await prisma.referral.count({
+            where: {
+                referrerId: userId,
+                firstPurchase: true
+            }
+        });
+
+        const referralEarnings = await prisma.transaction.aggregate({
+            where: {
+                userId: userId,
+                type: 'REFERRAL',
+                status: 'COMPLETED'
+            },
+            _sum: {
+                creditsAdded: true
+            }
+        });
+
         return NextResponse.json(serializeBigInt({
             user,
             stats: {
@@ -164,6 +193,12 @@ export async function GET(
                     usdUsed: totalSpend._sum.totalCostUsd || 0,
                     creditsPurchased: totalPayments._sum.creditsAdded || 0,
                     usdPurchased: totalPayments._sum.amount || 0
+                },
+                referrals: {
+                    count: referralsCount,
+                    payingCount: payingReferralsCount,
+                    totalEarned: referralEarnings._sum.creditsAdded || 0,
+                    invitedBy: referredBy
                 }
             },
         }));

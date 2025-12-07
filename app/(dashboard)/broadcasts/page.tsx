@@ -11,6 +11,7 @@ export default function BroadcastsPage() {
     const [isCreating, setIsCreating] = useState(false);
 
     const [targetNotSubscribed, setTargetNotSubscribed] = useState(false);
+    const [botToken, setBotToken] = useState('');
 
     useEffect(() => {
         fetchBroadcasts();
@@ -43,12 +44,14 @@ export default function BroadcastsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message,
-                    targetNotSubscribed
+                    targetNotSubscribed,
+                    botToken
                 }),
             });
 
             if (res.ok) {
                 setMessage('');
+                setBotToken('');
                 setTargetNotSubscribed(false);
                 fetchBroadcasts();
             } else {
@@ -104,6 +107,13 @@ export default function BroadcastsPage() {
                                 Send ONLY to users who are NOT subscribed to the channel
                             </label>
                         </div>
+                        <input
+                            type="text"
+                            className="w-full p-2 border rounded-md"
+                            placeholder="Custom Bot Token (Optional)"
+                            value={botToken}
+                            onChange={(e) => setBotToken(e.target.value)}
+                        />
                     </div>
                     <div className="mt-4 text-right">
                         <button

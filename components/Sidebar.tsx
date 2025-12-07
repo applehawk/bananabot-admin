@@ -15,6 +15,7 @@ const navigation = [
   { name: 'Messages', href: '/messages', icon: '💬' },
   { name: 'Providers', href: '/providers', icon: '🔌' },
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
+  { name: 'Referrals', href: '/referrals', icon: '🔗' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 
