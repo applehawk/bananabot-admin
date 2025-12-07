@@ -203,6 +203,13 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                                         ✉️ Message
                                     </button>
                                     <Link
+                                        href={`/messages?userId=${data.user.id}`}
+                                        className="px-4 py-2 bg-teal-50 text-teal-600 rounded hover:bg-teal-100 font-medium transition flex items-center"
+                                        target="_blank"
+                                    >
+                                        💬 Chat History
+                                    </Link>
+                                    <Link
                                         href={`/generations?userId=${data.user.id}`}
                                         className="px-4 py-2 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 font-medium transition flex items-center"
                                         target="_blank"
