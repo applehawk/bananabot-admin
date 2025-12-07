@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Helper to serialize BigInt
+function serializeBigInt(obj: unknown): unknown {
+    if (typeof obj === 'bigint') return obj.toString();
+    if (Array.isArray(obj)) return obj.map(serializeBigInt);
+    if (obj && typeof obj === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+            out[k] = serializeBigInt(v);
+        }
+        return out;
+    }
+    return obj;
+}
+
 export async function GET(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }
@@ -141,7 +155,7 @@ export async function GET(
             }
         });
 
-        return NextResponse.json({
+        return NextResponse.json(serializeBigInt({
             user,
             stats: {
                 daily: dailyStats,
@@ -152,7 +166,7 @@ export async function GET(
                     usdPurchased: totalPayments._sum.amount || 0
                 }
             },
-        });
+        }));
     } catch (error) {
         console.error("Error fetching user stats:", error);
         return NextResponse.json(
