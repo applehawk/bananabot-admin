@@ -297,7 +297,7 @@ export default function TariffsPage() {
                                 <div className="space-y-2">
                                     <label className="block text-sm font-medium text-gray-700">Provider</label>
                                     <select
-                                        value={formData.providerId}
+                                        value={formData.providerId || ''}
                                         onChange={(e) =>
                                             setFormData({ ...formData, providerId: e.target.value })
                                         }
@@ -429,7 +429,7 @@ export default function TariffsPage() {
                                 <div className="space-y-2">
                                     <label className="block text-sm font-medium text-gray-700">Price Unit</label>
                                     <select
-                                        value={formData.priceUnit}
+                                        value={formData.priceUnit || ''}
                                         onChange={(e) =>
                                             setFormData({ ...formData, priceUnit: e.target.value })
                                         }
