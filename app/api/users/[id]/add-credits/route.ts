@@ -20,10 +20,9 @@ function serializeBigInt(obj: unknown): unknown {
 
 export async function POST(
     request: NextRequest,
-    context: { params: { id: string } | Promise<{ id: string }> } // допускаем Promise или синхронный объект
+    context: { params: Promise<{ id: string }> }
 ) {
-    // await безопасен для Promise и для обычного объекта
-    const params = await (context.params as any);
+    const params = await context.params;
     const rawId = params?.id;
     if (!rawId) {
         return NextResponse.json({ error: 'Missing id param' }, { status: 400 });
