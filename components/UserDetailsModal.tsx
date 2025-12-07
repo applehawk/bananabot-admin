@@ -173,7 +173,7 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                             {loading && <span className="text-sm text-gray-500">Loading...</span>}
                             {!loading && data?.user && (
                                 <div className="mt-1">
-                                    <span className="font-bold text-lg">{data.user.firstName || data.user.username || 'Unknown'}</span>
+                                    <span className="font-bold text-lg text-gray-900">{data.user.firstName || data.user.username || 'Unknown'}</span>
                                     <span className="ml-2 text-gray-500">@{data.user.username}</span>
                                     <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">ID: {data.user.id}</span>
                                 </div>
@@ -396,27 +396,27 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                         <div>
                                             <span className="text-gray-500">Registered:</span>
-                                            <div>{new Date(data.user.createdAt).toLocaleString()}</div>
+                                            <div className="text-gray-900 font-medium">{data.user.createdAt ? new Date(data.user.createdAt).toLocaleString() : 'N/A'}</div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Last Active:</span>
-                                            <div>{new Date(data.user.lastActiveAt).toLocaleString()}</div>
+                                            <div className="text-gray-900 font-medium">{data.user.lastActiveAt ? new Date(data.user.lastActiveAt).toLocaleString() : 'N/A'}</div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Free Credits Used:</span>
-                                            <div>{data.user.freeCreditsUsed}</div>
+                                            <div className="text-gray-900 font-medium">{data.user.freeCreditsUsed ?? 0}</div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Is Subscribed:</span>
-                                            <div>{data.user.isSubscribed ? 'Yes' : 'No'}</div>
+                                            <div className="text-gray-900 font-medium">{data.user.isSubscribed ? 'Yes' : 'No'}</div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Telegram ID:</span>
-                                            <div>{data.user.telegramId.toString()}</div>
+                                            <div className="text-gray-900 font-medium">{data.user.telegramId?.toString() || 'N/A'}</div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Referral Code:</span>
-                                            <div>{data.user.referralCode}</div>
+                                            <div className="text-gray-900 font-medium">{data.user.referralCode || 'None'}</div>
                                         </div>
                                     </div>
                                 </div>

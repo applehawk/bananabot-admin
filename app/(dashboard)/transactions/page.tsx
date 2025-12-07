@@ -283,8 +283,8 @@ function TransactionsContent() {
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{tx.type}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{ color: tx.creditsAdded > 0 ? 'green' : 'red' }}>{tx.creditsAdded > 0 ? '+' : ''}{tx.creditsAdded.toFixed(1)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">{tx.amount ? `${tx.amount} руб.` : '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">{tx.paymentMethod}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.amount ? `${tx.amount} руб.` : '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.paymentMethod}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded ${tx.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{tx.status}</span>
                     </td>
