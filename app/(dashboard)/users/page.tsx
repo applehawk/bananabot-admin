@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 import SendMessageModal from '@/components/SendMessageModal';
+import UserDetailsModal from '@/components/UserDetailsModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -60,6 +61,10 @@ export default function UsersPage() {
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{ id: string, username?: string } | null>(null);
 
+  // User Details Modal
+  const [isUserDetailsOpen, setIsUserDetailsOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -82,38 +87,6 @@ export default function UsersPage() {
       setDatabaseError(true);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Handler to add credits to a user
-  const handleAddCredits = async (userId: string) => {
-    const amountStr = prompt('Enter amount of credits to add:');
-    if (!amountStr) return;
-    const amount = Number(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid positive number');
-      return;
-    }
-    try {
-      const res = await fetch(`/admin/api/users/${userId}/add-credits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credits: amount }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const errorMessage = errorData.error || `Failed to add credits (${res.status})`;
-        throw new Error(errorMessage);
-      }
-
-      // Refresh users list
-      await fetchUsers();
-      alert(`✅ Successfully added ${amount} credits`);
-    } catch (err) {
-      console.error('Error adding credits:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      alert(`❌ Error: ${errorMessage}`);
     }
   };
 
@@ -177,6 +150,14 @@ export default function UsersPage() {
           onClose={() => setIsMessageModalOpen(false)}
         />
       )}
+
+      {/* User Details Modal */}
+      <UserDetailsModal
+        userId={selectedUserId}
+        isOpen={isUserDetailsOpen}
+        onClose={() => setIsUserDetailsOpen(false)}
+        onUpdate={fetchUsers}
+      />
 
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -283,9 +264,13 @@ export default function UsersPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr
+                    key={user.id}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => { setSelectedUserId(user.id); setIsUserDetailsOpen(true); }}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{user.firstName || user.username || 'Unknown'}</div>
+                      <div className="font-medium text-blue-600 hover:text-blue-800">{user.firstName || user.username || 'Unknown'}</div>
                       {user.username && <div className="text-sm text-gray-500">@{user.username}</div>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.telegramId}</td>
@@ -295,21 +280,15 @@ export default function UsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.freeCreditsUsed}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGenerated}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => handleSendMessage(user)}
                         className="text-blue-500 hover:text-blue-700 font-medium"
                       >
                         Message
-                      </button>
-                      <Link href={`/generations?userId=${user.id}`} className="text-purple-600 hover:text-purple-900">Generations</Link>
-                      <Link href={`/transactions?userId=${user.id}`} className="text-blue-600 hover:text-blue-900">Transactions</Link>
-                      <Link href={`/users/${user.id}/settings`} className="text-indigo-600 hover:text-indigo-900">Settings</Link>
-                      <button
-                        onClick={() => handleAddCredits(user.id)}
-                        className="ml-2 text-green-600 hover:text-green-800"
-                      >
-                        Add Credits
                       </button>
 
                     </td>
