@@ -3,22 +3,7 @@
 import { useState, useEffect } from 'react';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
-interface Analytics {
-  id: string;
-  date: string;
-  newUsers: number;
-  activeUsers: number;
-  totalGenerations: number;
-  textToImage: number;
-  imageToImage: number;
-  multiImage: number;
-  totalRevenue: number;
-  totalCreditsUsed: number;
-  totalCreditsPurchased: number;
-  paymentsYooMoney: number;
-  paymentsStars: number;
-  paymentsCrypto: number;
-}
+import { Analytics } from '@prisma/client';
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<Analytics[]>([]);

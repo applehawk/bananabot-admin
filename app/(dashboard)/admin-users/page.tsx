@@ -3,13 +3,7 @@
 import { useState, useEffect } from 'react';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
-interface AdminUser {
-  id: string;
-  telegramId: string;
-  username: string | null;
-  role: string;
-  createdAt: string;
-}
+import { AdminUser } from '@prisma/client';
 
 export default function AdminUsersPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -200,7 +194,7 @@ export default function AdminUsersPage() {
                 {admins.map((admin) => (
                   <tr key={admin.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {admin.telegramId}
+                      {String(admin.telegramId)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {admin.username ? `@${admin.username}` : '-'}

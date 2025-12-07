@@ -16,48 +16,13 @@ const LoaderIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
 );
 
-type Provider = {
-    id: string;
-    name: string;
-    slug: string;
-};
+import { Prisma, Provider } from '@prisma/client';
 
-type ModelTariff = {
-    id: string;
-    modelId: string;
-    providerId: string;
-    provider?: Provider;
-    name: string;
-    displayName?: string;
-    description?: string;
-    inputPrice?: number;
-    outputPrice?: number;
-    outputImagePrice?: number;
-    outputVideoPrice?: number;
-    outputAudioPrice?: number;
-    priceUnit?: string;
-    creditsPerSecond?: number;
-    creditsPerGeneration?: number;
-    creditPriceUsd?: number;
-    inputImageTokens?: number; // Tokens for input image
-    imageTokensLowRes?: number;
-    imageTokensHighRes?: number;
-    videoTokensPerSecond?: number;
-    audioTokensPerMinute?: number;
-    maxTokens?: number;
-    maxVideoDuration?: number;
-    maxImageResolution?: string;
-    supportedResolutions?: string[];
-    hasNativeAudio: boolean;
-    hasImageGeneration: boolean;
-    hasVideoGeneration: boolean;
-    modelNameOnProvider?: string;
-    endpoints?: { url?: string } | null;
-    modelMargin: number;
-    isActive: boolean;
-    isPreview: boolean;
-    isSelfHosted: boolean;
-};
+type ModelTariff = Prisma.ModelTariffGetPayload<{
+    include: {
+        provider: true;
+    }
+}>;
 
 type ModelType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'MULTIMODAL';
 

@@ -1,21 +1,23 @@
 'use client';
 
-interface Transaction {
-    id: string;
-    type: string;
-    amount: number | null;
-    creditsAdded: number;
-    paymentMethod: string;
-    status: string;
-    createdAt: string;
-    user: { username: string | null; firstName: string | null; telegramId: string };
-    package: { name: string } | null;
-    metadata?: any;
-    description?: string | null;
-    paymentId?: string | null;
-    currency?: string | null;
-    isFinal?: boolean;
-}
+import { Prisma } from '@prisma/client';
+
+type Transaction = Prisma.TransactionGetPayload<{
+    include: {
+        user: {
+            select: {
+                username: true;
+                firstName: true;
+                telegramId: true;
+            }
+        };
+        package: {
+            select: {
+                name: true;
+            }
+        };
+    }
+}>;
 
 interface TransactionDetailsModalProps {
     transaction: Transaction | null;

@@ -2,18 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-interface Broadcast {
-    id: string;
-    message: string;
-    status: string;
-    scheduledFor: string | null;
-    startedAt: string | null;
-    completedAt: string | null;
-    totalUsers: number;
-    sentCount: number;
-    failedCount: number;
-    createdAt: string;
-}
+import { Broadcast } from '@prisma/client';
 
 export default function BroadcastsPage() {
     const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);

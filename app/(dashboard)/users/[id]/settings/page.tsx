@@ -4,41 +4,26 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
-interface UserSettings {
-  id: string;
-  userId: string;
-  aspectRatio: string;
-  numberOfImages: number;
-  safetyLevel: string;
-  language: string;
-  hdQuality: boolean;
-  autoEnhance: boolean;
-  useNegativePrompt: boolean;
-  notifyOnComplete: boolean;
-  notifyOnBonus: boolean;
-  isSubscriptionRequired: boolean;
-  selectedModelId: string;
-  createdAt: string;
-  updatedAt: string;
-  user: {
-    username: string | null;
-    firstName: string | null;
-    telegramId: string;
-    personalMargin: number;
-  }
-}
+import { Prisma, ModelTariff } from '@prisma/client';
 
-interface Tariff {
-  id: string;
-  modelId: string;
-  name: string;
-}
+type UserSettings = Prisma.UserSettingsGetPayload<{
+  include: {
+    user: {
+      select: {
+        username: true;
+        firstName: true;
+        telegramId: true;
+        personalMargin: true;
+      }
+    }
+  }
+}>;
 
 export default function UserSettingsPage() {
   const params = useParams();
   const userId = params?.id as string;
   const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [tariffs, setTariffs] = useState<Tariff[]>([]);
+  const [tariffs, setTariffs] = useState<ModelTariff[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -146,7 +131,7 @@ export default function UserSettingsPage() {
               ← Back to Users
             </Link>
             <h1 className="text-3xl font-bold text-gray-900">
-              ⚙️ User Settings: {settings.user.firstName || settings.user.username || settings.user.telegramId}
+              ⚙️ User Settings: {settings.user.firstName || settings.user.username || String(settings.user.telegramId)}
             </h1>
           </div>
         </div>

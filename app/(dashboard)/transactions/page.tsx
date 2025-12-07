@@ -29,22 +29,24 @@ ChartJS.register(
   Filler
 );
 
-interface Transaction {
-  id: string;
-  type: string;
-  amount: number | null;
-  creditsAdded: number;
-  paymentMethod: string;
-  status: string;
-  createdAt: string;
-  user: { username: string | null; firstName: string | null; telegramId: string };
-  package: { name: string } | null;
-  metadata?: any;
-  description?: string | null;
-  paymentId?: string | null;
-  currency?: string | null;
-  isFinal?: boolean;
-}
+import { Prisma } from '@prisma/client';
+
+type Transaction = Prisma.TransactionGetPayload<{
+  include: {
+    user: {
+      select: {
+        username: true;
+        firstName: true;
+        telegramId: true;
+      }
+    };
+    package: {
+      select: {
+        name: true;
+      }
+    };
+  }
+}>;
 
 interface DailyStats {
   date: string;
@@ -276,7 +278,7 @@ function TransactionsContent() {
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() => handleRowClick(tx)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{tx.user.firstName || tx.user.username || tx.user.telegramId}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{tx.user.firstName || tx.user.username || String(tx.user.telegramId)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{tx.type}</span>
                     </td>

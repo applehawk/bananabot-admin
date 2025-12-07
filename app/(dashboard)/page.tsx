@@ -3,20 +3,7 @@
 import { useState, useEffect } from 'react';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
-interface CreditPackage {
-  id: string;
-  name: string;
-  credits: number;
-  price: number;
-  currency: string;
-  discount: number;
-  popular: boolean;
-  active: boolean;
-  priceYooMoney: number | null;
-  priceStars: number | null;
-  priceCrypto: number | null;
-  description: string | null;
-}
+import { CreditPackage } from '@prisma/client';
 
 
 export default function AdminPage() {

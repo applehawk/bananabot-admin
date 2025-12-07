@@ -3,16 +3,7 @@
 import { useState, useEffect } from 'react';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
-interface SystemSettings {
-    systemMargin: number;
-    creditsPerUsd: number;
-    freeCreditsAmount: number;
-    hostingCost: number;
-    usdRubRate: number;
-    telegramChannelId?: string | null;
-    isSubscriptionRequired: boolean;
-    referralBonusAmount: number;
-}
+import { SystemSettings } from '@prisma/client';
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<SystemSettings | null>(null);
