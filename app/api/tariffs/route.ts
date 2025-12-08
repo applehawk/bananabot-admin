@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
                 isActive: data.isActive,
                 isPreview: data.isPreview,
                 isSelfHosted: data.isSelfHosted,
+                inputImagesLimit: data.inputImagesLimit,
+                inputImageTokens: data.inputImageTokens,
             },
         });
         return NextResponse.json(tariff);

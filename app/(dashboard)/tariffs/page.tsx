@@ -146,7 +146,9 @@ export default function TariffsPage() {
                 modelMargin: Number(formData.modelMargin) || 0,
                 imageTokensLowRes: formData.imageTokensLowRes ? Number(formData.imageTokensLowRes) : undefined,
                 imageTokensHighRes: formData.imageTokensHighRes ? Number(formData.imageTokensHighRes) : undefined,
+
                 maxVideoDuration: formData.maxVideoDuration ? Number(formData.maxVideoDuration) : undefined,
+                inputImagesLimit: formData.inputImagesLimit ? Number(formData.inputImagesLimit) : 5,
             };
 
             const res = await fetch(url, {
@@ -579,6 +581,18 @@ export default function TariffsPage() {
                                                                 setFormData({ ...formData, inputImageTokens: Number(e.target.value) || undefined })
                                                             }
                                                             placeholder="e.g. 560"
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700">Max Input Images</label>
+                                                        <input
+                                                            type="number"
+                                                            value={formData.inputImagesLimit || 5}
+                                                            onChange={(e) =>
+                                                                setFormData({ ...formData, inputImagesLimit: Number(e.target.value) || 5 })
+                                                            }
+                                                            placeholder="e.g. 5"
                                                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                                         />
                                                     </div>
