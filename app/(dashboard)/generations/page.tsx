@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
@@ -57,61 +57,70 @@ interface Generation {
   inputImages?: { fileUrl: string | null }[];
 }
 
+
 interface DailyStats {
   date: string;
   count: number;
+}
+
+interface PeriodStats {
+  day1: number;
+  day7: number;
+  day30: number;
+  day90: number;
 }
 
 function GenerationsContent() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED'>('COMPLETED');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'FAILED' | 'PROCESSING' | 'PENDING' | 'CANCELLED'>('ALL');
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [periodStats, setPeriodStats] = useState<PeriodStats>({ day1: 0, day7: 0, day30: 0, day90: 0 });
   const [databaseError, setDatabaseError] = useState(false);
   const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Pagination State
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalGenerations, setTotalGenerations] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [viewMode, setViewMode] = useState<'pagination' | 'infinite'>('infinite');
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
-  const calculateStats = useCallback((data: Generation[]) => {
-    // Calculate daily stats for the last 30 days
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const dailyMap = new Map<string, number>();
-
-    // Initialize all days with 0
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toISOString().split('T')[0];
-      dailyMap.set(dateStr, 0);
-    }
-
-    // Count generations per day
-    data.forEach(gen => {
-      const shouldCount = statusFilter === 'ALL' || gen.status === 'COMPLETED';
-      if (shouldCount) {
-        const date = new Date(gen.createdAt).toISOString().split('T')[0];
-        if (dailyMap.has(date)) {
-          dailyMap.set(date, (dailyMap.get(date) || 0) + 1);
-        }
-      }
-    });
-
-    const stats = Array.from(dailyMap.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    setDailyStats(stats);
-  }, [statusFilter]);
-
-  const fetchGenerations = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const params = new URLSearchParams();
+      if (userId) params.append('userId', userId);
+      if (typeFilter) params.append('type', typeFilter);
+      if (statusFilter) params.append('status', statusFilter);
+
+      const res = await fetch(`/admin/api/generations/stats?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch stats');
+
+      const data = await res.json();
+      setDailyStats(data.dailyStats || []);
+      setPeriodStats(data.periodStats || { day1: 0, day7: 0, day30: 0, day90: 0 });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, [userId, typeFilter, statusFilter]);
+
+  const fetchGenerations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
       if (typeFilter) params.append('type', typeFilter);
       if (userId) params.append('userId', userId);
+      if (statusFilter !== 'ALL') params.append('status', statusFilter);
 
       const queryString = params.toString();
       const res = await fetch(`/admin/api/generations${queryString ? `?${queryString}` : ''}`);
@@ -120,45 +129,75 @@ function GenerationsContent() {
       if (res.status === 503 && data.isDatabaseDown) {
         setDatabaseError(true);
         setGenerations([]);
-        setDailyStats([]);
-      } else if (Array.isArray(data)) {
+      } else if (data.generations) {
         setDatabaseError(false);
-        setGenerations(data);
-        calculateStats(data);
+        if (viewMode === 'infinite' && page > 1) {
+          setGenerations(prev => {
+            // simple de-dupe based on ID just in case
+            const existingIds = new Set(prev.map(g => g.id));
+            const newGens = data.generations.filter((g: Generation) => !existingIds.has(g.id));
+            return [...prev, ...newGens];
+          });
+        } else {
+          setGenerations(data.generations);
+        }
+        setTotalGenerations(data.pagination.total);
+        setTotalPages(data.pagination.totalPages);
       } else {
         setDatabaseError(false);
         setGenerations([]);
-        setDailyStats([]);
       }
     } catch (error) {
       console.error('Error:', error);
       setDatabaseError(true);
       setGenerations([]);
-      setDailyStats([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, typeFilter, userId, statusFilter, viewMode]);
 
+  // Reset page when view mode or filters change
+  useEffect(() => {
+    setPage(1);
+    // If switching to infinite, we might want to ensure fresh start, but page=1 handles fetch
+    if (viewMode === 'infinite') {
+      window.scrollTo(0, 0);
+    }
+  }, [viewMode, typeFilter, statusFilter, userId]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    if (viewMode !== 'infinite' || loading || page >= totalPages) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setPage(p => p + 1);
+      }
+    }, { threshold: 0.1 });
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => {
+      if (sentinelRef.current) {
+        observer.unobserve(sentinelRef.current);
+      }
+    };
+  }, [viewMode, loading, page, totalPages]);
+
+  // Reset page when userId changes (navigation)
+
+
+  // Fetch data when dependencies change
   useEffect(() => {
     fetchGenerations();
-  }, [typeFilter, userId]);
+  }, [fetchGenerations]);
 
+  // Fetch stats separately usually when filters change
   useEffect(() => {
-    if (generations.length > 0) {
-      calculateStats(generations);
-    }
-  }, [statusFilter, generations, calculateStats]);
-
-  const getStatsForPeriod = (days: number) => {
-    const now = new Date();
-    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    return generations.filter(gen => {
-      const isInPeriod = new Date(gen.createdAt) >= cutoff;
-      const matchesStatus = statusFilter === 'ALL' || gen.status === 'COMPLETED';
-      return isInPeriod && matchesStatus;
-    }).length;
-  };
+    fetchStats();
+  }, [fetchStats]);
 
   const togglePrompt = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -177,6 +216,7 @@ function GenerationsContent() {
     setSelectedGeneration(generation);
     setIsModalOpen(true);
   };
+
 
   // Filter generations for display in table
   const filteredGenerations = generations.filter(gen => {
@@ -208,42 +248,28 @@ function GenerationsContent() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Status Filter */}
-        <div className="mb-4 flex gap-2">
-          <button
-            onClick={() => setStatusFilter('COMPLETED')}
-            className={`px-4 py-2 rounded text-sm font-medium ${statusFilter === 'COMPLETED' ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}
-          >
-            ✅ Completed Only
-          </button>
-          <button
-            onClick={() => setStatusFilter('ALL')}
-            className={`px-4 py-2 rounded text-sm font-medium ${statusFilter === 'ALL' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}
-          >
-            📊 All Generations
-          </button>
-        </div>
+
 
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="text-sm font-medium text-gray-500">1 Day</div>
-            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(1)}</div>
+            <div className="text-2xl font-bold text-gray-900">{periodStats.day1}</div>
             <div className="text-xs text-gray-400 mt-1">Generations</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="text-sm font-medium text-gray-500">1 Week</div>
-            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(7)}</div>
+            <div className="text-2xl font-bold text-gray-900">{periodStats.day7}</div>
             <div className="text-xs text-gray-400 mt-1">Generations</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="text-sm font-medium text-gray-500">1 Month</div>
-            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(30)}</div>
+            <div className="text-2xl font-bold text-gray-900">{periodStats.day30}</div>
             <div className="text-xs text-gray-400 mt-1">Generations</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="text-sm font-medium text-gray-500">1 Quarter</div>
-            <div className="text-2xl font-bold text-gray-900">{getStatsForPeriod(90)}</div>
+            <div className="text-2xl font-bold text-gray-900">{periodStats.day90}</div>
             <div className="text-xs text-gray-400 mt-1">Generations</div>
           </div>
         </div>
@@ -291,12 +317,42 @@ function GenerationsContent() {
           </div>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="mb-4 flex gap-2">
-          <button onClick={() => setTypeFilter('')} className={`px-3 py-1 rounded text-sm font-medium ${!typeFilter ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}>All</button>
-          <button onClick={() => setTypeFilter('TEXT_TO_IMAGE')} className={`px-3 py-1 rounded text-sm font-medium ${typeFilter === 'TEXT_TO_IMAGE' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}>Text-to-Image</button>
-          <button onClick={() => setTypeFilter('IMAGE_TO_IMAGE')} className={`px-3 py-1 rounded text-sm font-medium ${typeFilter === 'IMAGE_TO_IMAGE' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}>Image-to-Image</button>
-          <button onClick={() => setTypeFilter('MULTI_IMAGE')} className={`px-3 py-1 rounded text-sm font-medium ${typeFilter === 'MULTI_IMAGE' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}`}>Multi-Image</button>
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-6 items-end">
+          {/* Status Dropdown */}
+          <div>
+            <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value as any); setPage(1); }}
+              className="mt-1 block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="PROCESSING">Processing</option>
+              <option value="PENDING">Pending</option>
+              <option value="FAILED">Failed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Type Dropdown */}
+          <div>
+            <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <select
+              id="type-filter"
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+              className="mt-1 block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="">All Types</option>
+              <option value="TEXT_TO_IMAGE">Text to Image</option>
+              <option value="IMAGE_TO_IMAGE">Image to Image</option>
+              <option value="MULTI_IMAGE">Multi Image</option>
+              <option value="BATCH">Batch</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -306,7 +362,7 @@ function GenerationsContent() {
         ) : (
           <>
             <div className="mb-2 text-sm text-gray-600">
-              Showing {filteredGenerations.length} of {generations.length} generations
+              Showing {generations.length} of {totalGenerations} generations (Page {page} of {totalPages})
             </div>
             <div className="bg-white rounded-lg shadow overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -321,7 +377,7 @@ function GenerationsContent() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredGenerations.map((gen) => (
+                  {generations.map((gen) => (
                     <tr
                       key={gen.id}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -342,7 +398,12 @@ function GenerationsContent() {
                           </button>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-medium rounded ${gen.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : gen.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{gen.status}</span></td>
+                      <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-medium rounded ${gen.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                        gen.status === 'PROCESSING' ? 'bg-blue-100 text-blue-800' :
+                          gen.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                            gen.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                        }`}>{gen.status}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{gen.creditsUsed.toFixed(1)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(gen.createdAt).toLocaleString()}</td>
                     </tr>
@@ -350,10 +411,126 @@ function GenerationsContent() {
                 </tbody>
               </table>
             </div>
+
+
+
+            {/* Infinite Scroll Sentinel */}
+            {viewMode === 'infinite' && (
+              <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+                {loading && page > 1 && (
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent"></div>
+                )}
+              </div>
+            )}
           </>
         )}
+        {viewMode === 'pagination' && (
+          <div className="flex items-center justify-between mt-4">
+            {/* ... existing pagination controls ... */}
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(page * limit, totalGenerations)}</span> of <span className="font-medium">{totalGenerations}</span> results
+                </p>
+                <select
+                  value={limit}
+                  onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                  className="block pl-3 pr-8 py-1 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                >
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <span className="sr-only">First</span>
+                    <span aria-hidden="true">&laquo;</span>
+                  </button>
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <span aria-hidden="true">&larr;</span>
+                  </button>
+
+                  {/* Page Numbers - Simplified for now */}
+                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                    let pNum = page;
+                    if (totalPages > 5) {
+                      // Simple logic to keep current page visible
+                      if (page <= 3) {
+                        pNum = idx + 1;
+                      } else if (page >= totalPages - 2) {
+                        pNum = totalPages - 4 + idx;
+                      } else {
+                        pNum = page - 2 + idx;
+                      }
+                    } else {
+                      pNum = idx + 1;
+                    }
+
+                    return (
+                      <button
+                        key={pNum}
+                        onClick={() => setPage(pNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pNum
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                      >
+                        {pNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <span className="sr-only">Next</span>
+                    <span aria-hidden="true">&rarr;</span>
+                  </button>
+                  <button
+                    onClick={() => setPage(totalPages)}
+                    disabled={page === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <span className="sr-only">Last</span>
+                    <span aria-hidden="true">&raquo;</span>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+
+        )}
       </main>
-    </div>
+    </div >
   );
 }
 

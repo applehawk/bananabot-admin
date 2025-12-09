@@ -9,32 +9,44 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const type = searchParams.get('type');
+    const status = searchParams.get('status');
 
     const where: any = {};
     if (userId) where.userId = userId;
     if (type) where.type = type;
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
 
-    const generations = await prisma.generation.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            username: true,
-            firstName: true,
-            telegramId: true,
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const skip = (page - 1) * limit;
+
+    const [total, generations] = await Promise.all([
+      prisma.generation.count({ where }),
+      prisma.generation.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              username: true,
+              firstName: true,
+              telegramId: true,
+            },
           },
-        },
-        inputImages: true,
-        model: {
-          select: {
-            name: true,
-            providerId: true,
+          inputImages: true,
+          model: {
+            select: {
+              name: true,
+              providerId: true,
+            }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      })
+    ]);
 
     // Convert BigInt to string for JSON serialization
     const serializedGenerations = generations.map((gen: any) => ({
@@ -45,7 +57,15 @@ export async function GET(request: NextRequest) {
       },
     }));
 
-    return NextResponse.json(serializedGenerations);
+    return NextResponse.json({
+      generations: serializedGenerations,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Error fetching generations:', error);
     const errorResponse = handleDatabaseError(error);

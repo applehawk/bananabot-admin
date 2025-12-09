@@ -11,23 +11,45 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const where = userId ? { userId } : {};
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const paymentMethods = searchParams.get('paymentMethod')?.split(',').filter(Boolean);
+    const status = searchParams.get('status');
+    const type = searchParams.get('type');
 
-    const transactions = await prisma.transaction.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            username: true,
-            firstName: true,
-            telegramId: true,
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (paymentMethods && paymentMethods.length > 0) {
+      where.paymentMethod = { in: paymentMethods };
+    }
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+    if (type && type !== 'ALL') {
+      where.type = type;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [total, transactions] = await Promise.all([
+      prisma.transaction.count({ where }),
+      prisma.transaction.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              username: true,
+              firstName: true,
+              telegramId: true,
+            },
           },
+          package: true,
         },
-        package: true,
-      },
-      orderBy: { [sortBy]: order },
-      take: 100,
-    });
+        orderBy: { [sortBy]: order },
+        skip,
+        take: limit,
+      })
+    ]);
 
     // Convert BigInt to string for JSON serialization
     const serializedTransactions = transactions.map((tx: any) => ({
@@ -38,7 +60,15 @@ export async function GET(request: NextRequest) {
       },
     }));
 
-    return NextResponse.json(serializedTransactions);
+    return NextResponse.json({
+      transactions: serializedTransactions,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     const errorResponse = handleDatabaseError(error);
