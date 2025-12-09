@@ -11,6 +11,7 @@ COPY package.json pnpm-lock.yaml* ./
 # Install dependencies
 # Allow bun to migrate pnpm-lock.yaml to bun.lockb to resolve specific versions
 RUN bun install --no-frozen-lockfile
+RUN bun install -D tsc-alias
 
 # Copy prisma submodule (schema and migrations)
 COPY prisma ./prisma
@@ -28,6 +29,7 @@ ENV NEXT_PUBLIC_BOT_USERNAME=$NEXT_PUBLIC_BOT_USERNAME
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
+RUN bunx tsc-alias -p tsconfig.json --outDir ./dist
 
 # Production stage
 FROM oven/bun:1 AS runner
