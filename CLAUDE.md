@@ -105,3 +105,42 @@ For production, you typically need to access the remote instance and then execut
     # The script is located at /app/scripts/test-generation-cost.ts inside the container
     docker exec -it bananabot-admin npx ts-node scripts/test-generation-cost.ts
     ```
+
+## Database Migrations
+
+### ⚠️ IMPORTANT: Local Development vs Production
+
+Migrations should only be created and applied **locally** during development.
+- **Local**: You create the migration file using `prisma migrate dev` using the local database.
+- **Deploy**: The migration is automatically applied on the VM during deployment (via `deploy-admin.sh` or Dockerfile).
+
+### How to Create a Migration
+
+When you modify `bananabot-admin/prisma/schema.prisma`, you must create a migration file.
+
+**Convenient Method (Recommended):**
+We have added a helper script that automatically sets the local `DATABASE_URL`.
+
+```bash
+# Run from root directory
+npm run prisma:migrate:local -- --name <migration_name>
+```
+
+**Example:**
+
+```bash
+npm run prisma:migrate:local -- --name add_transfer_enum
+```
+
+**Manual Method:**
+If you need custom credentials or configuration:
+
+```bash
+# Run from root directory
+DATABASE_URL="postgresql://bananabot:bananabot_secret@localhost:5432/bananabot?schema=public" npx prisma migrate dev --name <migration_name> --schema=bananabot-admin/prisma/schema.prisma
+```
+
+This will:
+1. Update your local database schema.
+2. Generate the migration SQL file in `bananabot-admin/prisma/migrations`.
+3. Regenerate the Prisma Client.
