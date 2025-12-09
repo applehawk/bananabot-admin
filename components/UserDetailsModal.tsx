@@ -360,32 +360,34 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                                     <h4 className="font-semibold text-gray-700 mb-2">Referral Information</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                         <div>
-                                            <span className="text-gray-500">Referral Code:</span>
-                                            <div className="font-mono bg-gray-100 px-2 py-0.5 rounded w-fit">{data.user.referralCode}</div>
+                                            <span className="text-gray-600 font-medium">Referral Code:</span>
+                                            <div className="font-mono bg-gray-100 px-2 py-0.5 rounded w-fit text-gray-900 font-medium border border-gray-200 mt-1">
+                                                {data.user.referralCode}
+                                            </div>
                                         </div>
                                         <div>
-                                            <span className="text-gray-500">Invited By:</span>
-                                            <div>
+                                            <span className="text-gray-600 font-medium">Invited By:</span>
+                                            <div className="mt-1">
                                                 {data.stats.referrals?.invitedBy ? (
-                                                    <span className="text-blue-600">
+                                                    <span className="text-blue-600 font-medium hover:underline cursor-pointer">
                                                         {data.stats.referrals.invitedBy.firstName || data.stats.referrals.invitedBy.username}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-gray-400">None</span>
+                                                    <span className="text-gray-500 italic">None</span>
                                                 )}
                                             </div>
                                         </div>
                                         <div>
-                                            <span className="text-gray-500">Total Referrals:</span>
-                                            <div className="font-bold text-lg">{data.stats.referrals?.count || 0}</div>
+                                            <span className="text-gray-600 font-medium">Total Referrals:</span>
+                                            <div className="font-bold text-lg text-gray-900 mt-1">{data.stats.referrals?.count || 0}</div>
                                         </div>
                                         <div>
-                                            <span className="text-gray-500">Paying Users:</span>
-                                            <div className="font-bold text-lg text-green-600">{data.stats.referrals?.payingCount || 0}</div>
+                                            <span className="text-gray-600 font-medium">Paying Users:</span>
+                                            <div className="font-bold text-lg text-green-700 mt-1">{data.stats.referrals?.payingCount || 0}</div>
                                         </div>
                                         <div>
-                                            <span className="text-gray-500">Earned from Refs:</span>
-                                            <div className="font-bold text-green-600">+{data.stats.referrals?.totalEarned?.toFixed(1) || 0} Cr</div>
+                                            <span className="text-gray-600 font-medium">Earned from Refs:</span>
+                                            <div className="font-bold text-green-700 mt-1">+{data.stats.referrals?.totalEarned?.toFixed(1) || 0} Cr</div>
                                         </div>
                                     </div>
                                 </div>
@@ -396,11 +398,19 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                         <div>
                                             <span className="text-gray-500">Registered:</span>
-                                            <div className="text-gray-900 font-medium">{data.user.createdAt ? new Date(data.user.createdAt).toLocaleString() : 'N/A'}</div>
+                                            <div className="text-gray-900 font-medium">
+                                                {data.user.createdAt && !isNaN(new Date(data.user.createdAt).getTime())
+                                                    ? new Date(data.user.createdAt).toLocaleString()
+                                                    : 'N/A'}
+                                            </div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Last Active:</span>
-                                            <div className="text-gray-900 font-medium">{data.user.lastActiveAt ? new Date(data.user.lastActiveAt).toLocaleString() : 'N/A'}</div>
+                                            <div className="text-gray-900 font-medium">
+                                                {data.user.lastActiveAt && !isNaN(new Date(data.user.lastActiveAt).getTime())
+                                                    ? new Date(data.user.lastActiveAt).toLocaleString()
+                                                    : 'N/A'}
+                                            </div>
                                         </div>
                                         <div>
                                             <span className="text-gray-500">Free Credits Used:</span>

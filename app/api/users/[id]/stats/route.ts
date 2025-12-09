@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 // Helper to serialize BigInt
 function serializeBigInt(obj: unknown): unknown {
     if (typeof obj === 'bigint') return obj.toString();
+    if (obj instanceof Date) return obj.toISOString();
     if (Array.isArray(obj)) return obj.map(serializeBigInt);
     if (obj && typeof obj === 'object') {
         const out: Record<string, unknown> = {};
@@ -157,10 +158,22 @@ export async function GET(
 
 
         // 5. Referral Statistics
-        const referredBy = user.referredBy ? await prisma.user.findFirst({
-            where: { referralCode: user.referredBy },
-            select: { id: true, username: true, firstName: true, telegramId: true }
-        }) : null;
+        // Try to find referrer via Referral table first (source of truth)
+        let referredBy = null;
+        const referralRecord = await prisma.referral.findFirst({
+            where: { referredId: userId },
+            include: { referrer: { select: { id: true, username: true, firstName: true, telegramId: true } } }
+        });
+
+        if (referralRecord) {
+            referredBy = referralRecord.referrer;
+        } else if (user.referredBy) {
+            // Fallback to code if no referral record exists
+            referredBy = await prisma.user.findFirst({
+                where: { referralCode: user.referredBy },
+                select: { id: true, username: true, firstName: true, telegramId: true }
+            });
+        }
 
         const referralsCount = await prisma.referral.count({
             where: { referrerId: userId }

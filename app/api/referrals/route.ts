@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 // Helper to serialize BigInt
 function serializeBigInt(obj: unknown): unknown {
     if (typeof obj === 'bigint') return obj.toString();
+    if (obj instanceof Date) return obj.toISOString();
     if (Array.isArray(obj)) return obj.map(serializeBigInt);
     if (obj && typeof obj === 'object') {
         const out: Record<string, unknown> = {};
