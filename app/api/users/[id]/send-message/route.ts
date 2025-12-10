@@ -2,22 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { handleDatabaseError } from '@/lib/db-error-handler';
-import { getServerSession } from 'next-auth';
-// You might need to import your auth options if you want strict checking, but basic session check works often
-// import { authOptions } from "@/lib/auth"; 
+import { createHmac } from 'crypto';
+
+// Helper to sign params matching the NestJS implementation
+function signParams(params: Record<string, string | number>, secret: string): string {
+    const sortedKeys = Object.keys(params).sort();
+    const dataString = sortedKeys.map(key => `${key}=${params[key]}`).join('&');
+    return createHmac('sha256', secret).update(dataString).digest('hex');
+}
 
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        // Basic Auth Check (optional, but good practice)
-        // const session = await getServerSession(); 
-        // if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
         const { id: userId } = await params;
         const body = await request.json();
-        const { message } = body;
+        const { message, customPackage } = body;
 
         if (!message || typeof message !== 'string') {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -32,18 +33,70 @@ export async function POST(
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
+        let telegramOptions: any = {};
+
+        // Handle Custom Package Attachment
+        if (customPackage) {
+            const { name, price, credits } = customPackage;
+
+            // Create inactive package
+            const newPkg = await prisma.creditPackage.create({
+                data: {
+                    name,
+                    price: Number(price),
+                    credits: Number(credits),
+                    active: false, // Hidden from store
+                    currency: 'RUB',
+                    popular: false,
+                    discount: 0,
+                    priceYooMoney: Number(price),
+                    priceCrypto: Number(price),
+                    priceStars: Math.ceil(Number(price) * 1.5), // Rough estimate or 0
+                    description: 'Personal Offer'
+                }
+            });
+
+            // Generate Payment URL
+            // Matches src/payment/payment.controller.ts logic
+            const secret = process.env.YOOMONEY_SECRET || process.env.NEXT_PUBLIC_YOOMONEY_SECRET || 'default_secret';
+            const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_APP_URL || 'https://t.me/your_bot_name'; // Fallback
+
+            const tariffId = newPkg.id;
+            const timestamp = Math.floor(Date.now() / 1000);
+
+            // Note: Telegram ID is BigInt, cast to Number/String for signing
+            // Controller uses Number(userId), so we must sign the number value.
+            const tid = Number(user.telegramId);
+
+            const paramsToSign = {
+                userId: tid,
+                chatId: tid,
+                tariffId,
+                timestamp
+            };
+
+            const sign = signParams(paramsToSign, secret);
+
+            const paymentUrl = `${domain}/payment/init?userId=${tid}&chatId=${tid}&tariffId=${tariffId}&timestamp=${timestamp}&sign=${sign}`;
+
+            telegramOptions.reply_markup = {
+                inline_keyboard: [[
+                    { text: `Buy ${name} for ${price}₽`, url: paymentUrl }
+                ]]
+            };
+        }
+
         // Attempt to send to Telegram
-        const telegramResult = await sendTelegramMessage(user.telegramId.toString(), message);
+        const telegramResult = await sendTelegramMessage(user.telegramId.toString(), message, telegramOptions);
 
         // Record in DB
         const adminMessage = await prisma.adminMessage.create({
             data: {
                 userId: user.id,
-                message,
+                message: customPackage ? `${message}\n[Attached Package: ${customPackage.name} - ${customPackage.price}RUB]` : message,
                 status: telegramResult.success ? 'SENT' : 'FAILED',
                 error: telegramResult.error,
                 isBroadcast: false,
-                // adminId: session?.user?.id // If we had the admin ID
             }
         });
 

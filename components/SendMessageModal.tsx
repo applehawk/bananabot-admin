@@ -24,6 +24,12 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
     const [history, setHistory] = useState<Message[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+    // Custom Package State
+    const [showPackageForm, setShowPackageForm] = useState(false);
+    const [pkgName, setPkgName] = useState('');
+    const [pkgPrice, setPkgPrice] = useState('');
+    const [pkgCredits, setPkgCredits] = useState('');
+
     useEffect(() => {
         if (isOpen && userId) {
             fetchHistory();
@@ -48,12 +54,23 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
     const handleSend = async () => {
         if (!message.trim()) return;
 
+        const customPackage = showPackageForm ? {
+            name: pkgName,
+            price: Number(pkgPrice),
+            credits: Number(pkgCredits)
+        } : undefined;
+
+        if (showPackageForm && (!pkgName || !pkgPrice || !pkgCredits)) {
+            alert('Please fill all package fields');
+            return;
+        }
+
         try {
             setIsSending(true);
             const res = await fetch(`/admin/api/users/${userId}/send-message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({ message, customPackage }),
             });
 
             const data = await res.json();
@@ -95,7 +112,53 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                     />
-                    <div className="mt-2 text-right">
+                    <div className="mt-4 border-t pt-4">
+                        <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={showPackageForm}
+                                onChange={(e) => setShowPackageForm(e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>Attach Special Offer (Custom Package)</span>
+                        </label>
+
+                        {showPackageForm && (
+                            <div className="mt-3 grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-md border">
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Package Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Special Discount"
+                                        value={pkgName}
+                                        onChange={(e) => setPkgName(e.target.value)}
+                                        className="w-full p-2 border rounded text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Price (RUB)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="100"
+                                        value={pkgPrice}
+                                        onChange={(e) => setPkgPrice(e.target.value)}
+                                        className="w-full p-2 border rounded text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Credits</label>
+                                    <input
+                                        type="number"
+                                        placeholder="50"
+                                        value={pkgCredits}
+                                        onChange={(e) => setPkgCredits(e.target.value)}
+                                        className="w-full p-2 border rounded text-sm"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-4 text-right">
                         <button
                             onClick={handleSend}
                             disabled={isSending || !message.trim()}

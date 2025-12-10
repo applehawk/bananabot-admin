@@ -33,7 +33,7 @@ export async function GET() {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { systemMargin, creditsPerUsd, freeCreditsAmount, hostingCost, usdRubRate, telegramChannelId, isSubscriptionRequired, referralBonusAmount, referralFirstPurchaseBonus } = body;
+        const { systemMargin, creditsPerUsd, freeCreditsAmount, hostingCost, usdRubRate, telegramChannelId, isSubscriptionRequired, referralBonusAmount, referralFirstPurchaseBonus, defaultNewUserModelId } = body;
 
         const settings = await prisma.systemSettings.update({
             where: { key: 'singleton' },
@@ -47,6 +47,7 @@ export async function PUT(request: Request) {
                 isSubscriptionRequired: isSubscriptionRequired,
                 referralBonusAmount: parseFloat(referralBonusAmount),
                 referralFirstPurchaseBonus: parseFloat(referralFirstPurchaseBonus),
+                defaultNewUserModelId: defaultNewUserModelId,
             },
         });
 

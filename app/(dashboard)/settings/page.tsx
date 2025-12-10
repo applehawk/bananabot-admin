@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 
-import { SystemSettings } from '@prisma/client';
+import { SystemSettings, ModelTariff } from '@prisma/client';
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<SystemSettings | null>(null);
@@ -11,8 +11,13 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [databaseError, setDatabaseError] = useState(false);
 
+    const [models, setModels] = useState<ModelTariff[]>([]);
+    const [selectedGlobalModel, setSelectedGlobalModel] = useState<string>('');
+    const [updatingUsers, setUpdatingUsers] = useState(false);
+
     useEffect(() => {
         fetchSettings();
+        fetchModels();
     }, []);
 
     const fetchSettings = async () => {
@@ -26,6 +31,47 @@ export default function SettingsPage() {
             setDatabaseError(true);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchModels = async () => {
+        try {
+            const res = await fetch('/admin/api/tariffs');
+            if (!res.ok) throw new Error('Failed to fetch models');
+            const data = await res.json();
+            setModels(data);
+            if (data.length > 0) {
+                setSelectedGlobalModel(data[0].modelId);
+            }
+        } catch (error) {
+            console.error('Error fetching models:', error);
+        }
+    };
+
+    const handleGlobalModelUpdate = async () => {
+        if (!selectedGlobalModel) return;
+
+        if (!confirm('Are you sure you want to update the default model for ALL users? This cannot be undone.')) {
+            return;
+        }
+
+        setUpdatingUsers(true);
+        try {
+            const res = await fetch('/admin/api/settings/update-all-users-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelId: selectedGlobalModel }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update user models');
+
+            alert(data.message || `Successfully updated users to new model.`);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to update user models');
+        } finally {
+            setUpdatingUsers(false);
         }
     };
 
@@ -72,7 +118,72 @@ export default function SettingsPage() {
                 </div>
             </header>
 
-            <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+                {/* Global Model Updates */}
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-900">🚀 Global Model Rollout</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Force update the selected AI model for <b>ALL users</b>. This will change their default model setting immediately.
+                    </p>
+
+                    <div className="flex items-end gap-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Select Target Model
+                            </label>
+                            <select
+                                value={selectedGlobalModel}
+                                onChange={(e) => setSelectedGlobalModel(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            >
+                                {models.map((model) => (
+                                    <option key={model.id} value={model.modelId}>
+                                        {model.displayName || model.name} ({model.modelId})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleGlobalModelUpdate}
+                            disabled={updatingUsers || !selectedGlobalModel}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium disabled:opacity-50 whitespace-nowrap transition-colors"
+                        >
+                            {updatingUsers ? 'Applying...' : 'Apply to All Users'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Defaults */}
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-900">🆕 New User Defaults</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Configure default settings applied to new users when they first join.
+                    </p>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Default AI Model
+                        </label>
+                        <select
+                            value={settings.defaultNewUserModelId || ''}
+                            onChange={(e) => setSettings({ ...settings, defaultNewUserModelId: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">-- Select Default Model --</option>
+                            {models.map((model) => (
+                                <option key={model.id} value={model.modelId}>
+                                    {model.displayName || model.name} ({model.modelId})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                            This model will be selected by default for all new users.
+                        </p>
+                    </div>
+                </div>
+
                 <div className="bg-white rounded-lg shadow p-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
 

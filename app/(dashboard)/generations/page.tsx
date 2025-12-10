@@ -240,10 +240,26 @@ function GenerationsContent() {
       />
 
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">
             🎨 Generations {userId && <span className="text-blue-600">(Filtered by User)</span>}
           </h1>
+          <div className="flex bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode('infinite')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${viewMode === 'infinite' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'
+                }`}
+            >
+              Infinite
+            </button>
+            <button
+              onClick={() => setViewMode('pagination')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${viewMode === 'pagination' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'
+                }`}
+            >
+              Pagination
+            </button>
+          </div>
         </div>
       </header>
 
@@ -355,7 +371,7 @@ function GenerationsContent() {
           </div>
         </div>
 
-        {loading ? (
+        {loading && generations.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
           </div>
