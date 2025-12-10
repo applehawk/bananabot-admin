@@ -26,6 +26,19 @@ migrate-deploy:
 	export $$(grep -v '^#' .env | xargs) && export DATABASE_URL=$$(echo $$DATABASE_URL | sed 's/postgres:5432/localhost:5432/') && pnpm prisma migrate deploy
 	@echo "✓ Migrations applied"
 
+# Create and apply migration (dev)
+# Usage: make migrate-dev name=migration_name
+migrate-dev:
+	@echo "Creating migration..."
+	export $$(grep -v '^#' .env | xargs) && export DATABASE_URL=$$(echo $$DATABASE_URL | sed 's/postgres:5432/localhost:5432/') && pnpm prisma migrate dev --name $(name)
+
+# Force reset database (drop and re-apply migrations)
+reset-db:
+	@echo "Resetting database..."
+	export $$(grep -v '^#' .env | xargs) && export DATABASE_URL=$$(echo $$DATABASE_URL | sed 's/postgres:5432/localhost:5432/') && pnpm prisma migrate reset --force
+
+
+
 # Install dependencies
 install:
 	@echo "Installing dependencies with pnpm..."

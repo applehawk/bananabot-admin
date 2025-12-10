@@ -5,10 +5,34 @@ import { handleDatabaseError } from '@/lib/db-error-handler';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { message, scheduledFor, targetNotSubscribed, botToken } = body;
+        const { message, scheduledFor, targetNotSubscribed, botToken, customPackage, packageId } = body;
 
         if (!message || typeof message !== 'string') {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+        }
+
+        let creditPackageId = null;
+
+        if (customPackage) {
+            const { name, price, credits } = customPackage;
+            const pkg = await prisma.creditPackage.create({
+                data: {
+                    name,
+                    price: Number(price),
+                    credits: Number(credits),
+                    active: false,
+                    currency: 'RUB',
+                    popular: false,
+                    discount: 0,
+                    priceYooMoney: Number(price),
+                    priceCrypto: Number(price),
+                    priceStars: Math.ceil(Number(price) * 1.5),
+                    description: 'Broadcast attached package'
+                }
+            });
+            creditPackageId = pkg.id;
+        } else if (packageId) {
+            creditPackageId = packageId;
         }
 
         const broadcast = await prisma.broadcast.create({
@@ -18,6 +42,7 @@ export async function POST(request: NextRequest) {
                 scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
                 targetNotSubscribed: targetNotSubscribed || false,
                 botToken: botToken || null,
+                creditPackageId: creditPackageId || null,
             }
         });
 

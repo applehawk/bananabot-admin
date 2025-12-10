@@ -13,12 +13,36 @@ export default function BroadcastsPage() {
     const [targetNotSubscribed, setTargetNotSubscribed] = useState(false);
     const [botToken, setBotToken] = useState('');
 
+    // Package State
+    const [showPackageForm, setShowPackageForm] = useState(false);
+    const [packageMode, setPackageMode] = useState<'existing' | 'custom'>('existing');
+    const [packages, setPackages] = useState<any[]>([]);
+    const [selectedPackageId, setSelectedPackageId] = useState('');
+
+    // Custom package form
+    const [pkgName, setPkgName] = useState('');
+    const [pkgPrice, setPkgPrice] = useState('');
+    const [pkgCredits, setPkgCredits] = useState('');
+
     useEffect(() => {
         fetchBroadcasts();
+        fetchPackages();
         // Poll for updates every 5 seconds
         const interval = setInterval(fetchBroadcasts, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    const fetchPackages = async () => {
+        try {
+            const res = await fetch('/admin/api/packages');
+            if (res.ok) {
+                const data = await res.json();
+                setPackages(data.filter((p: any) => p.active));
+            }
+        } catch (error) {
+            console.error('Failed to load packages', error);
+        }
+    };
 
     const fetchBroadcasts = async () => {
         try {
@@ -37,22 +61,49 @@ export default function BroadcastsPage() {
     const handleCreate = async () => {
         if (!message.trim()) return;
 
+        let payload: any = {
+            message,
+            targetNotSubscribed,
+            botToken
+        };
+
+        if (showPackageForm) {
+            if (packageMode === 'custom') {
+                if (!pkgName || !pkgPrice || !pkgCredits) {
+                    alert('Please fill all package fields');
+                    return;
+                }
+                payload.customPackage = {
+                    name: pkgName,
+                    price: Number(pkgPrice),
+                    credits: Number(pkgCredits)
+                };
+            } else {
+                if (!selectedPackageId) {
+                    alert('Please select a package');
+                    return;
+                }
+                payload.packageId = selectedPackageId;
+            }
+        }
+
         try {
             setIsCreating(true);
             const res = await fetch('/admin/api/broadcasts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message,
-                    targetNotSubscribed,
-                    botToken
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (res.ok) {
                 setMessage('');
                 setBotToken('');
                 setTargetNotSubscribed(false);
+                setShowPackageForm(false);
+                setPkgName('');
+                setPkgPrice('');
+                setPkgCredits('');
+                setSelectedPackageId('');
                 fetchBroadcasts();
             } else {
                 alert('Failed to create broadcast');
@@ -114,6 +165,94 @@ export default function BroadcastsPage() {
                             value={botToken}
                             onChange={(e) => setBotToken(e.target.value)}
                         />
+
+                        {/* Package Selection */}
+                        <div className="border-t pt-4">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showPackageForm}
+                                    onChange={(e) => setShowPackageForm(e.target.checked)}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Attach Special Offer</span>
+                            </label>
+
+                            {showPackageForm && (
+                                <div className="mt-3 bg-gray-50 p-3 rounded-md border text-sm">
+                                    <div className="flex space-x-4 mb-3">
+                                        <label className="inline-flex items-center">
+                                            <input
+                                                type="radio"
+                                                className="form-radio"
+                                                checked={packageMode === 'existing'}
+                                                onChange={() => setPackageMode('existing')}
+                                            />
+                                            <span className="ml-2">Existing Package</span>
+                                        </label>
+                                        <label className="inline-flex items-center">
+                                            <input
+                                                type="radio"
+                                                className="form-radio"
+                                                checked={packageMode === 'custom'}
+                                                onChange={() => setPackageMode('custom')}
+                                            />
+                                            <span className="ml-2">Create Custom</span>
+                                        </label>
+                                    </div>
+
+                                    {packageMode === 'existing' ? (
+                                        <div>
+                                            <select
+                                                className="w-full p-2 border rounded"
+                                                value={selectedPackageId}
+                                                onChange={(e) => setSelectedPackageId(e.target.value)}
+                                            >
+                                                <option value="">-- Select a Package --</option>
+                                                {packages.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.name} - {p.price}₽ ({p.credits} credits)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="col-span-2">
+                                                <label className="block text-xs font-medium text-gray-500 mb-1">Package Name</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. Special Discount"
+                                                    value={pkgName}
+                                                    onChange={(e) => setPkgName(e.target.value)}
+                                                    className="w-full p-2 border rounded"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-1">Price (RUB)</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="100"
+                                                    value={pkgPrice}
+                                                    onChange={(e) => setPkgPrice(e.target.value)}
+                                                    className="w-full p-2 border rounded"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-1">Credits</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="50"
+                                                    value={pkgCredits}
+                                                    onChange={(e) => setPkgCredits(e.target.value)}
+                                                    className="w-full p-2 border rounded"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="mt-4 text-right">
                         <button
