@@ -8,17 +8,20 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
+        const scale = searchParams.get('scale') || '1M'; // '1D', '1W', '1M', '1Q'
 
         // Filter by user if requested, otherwise global stats
         const where: any = {};
         if (userId) where.userId = userId;
 
         // We focus on PURCHASE transactions or transactions that have an amount > 0 and status COMPLETED for revenue
-        // However, the user asked for "stats of payments" (amount), but also mentioned "filter by all types".
-        // Usually revenue stats are strictly about money coming in.
         const revenueWhere = {
             ...where,
             status: 'COMPLETED',
+            // type: 'PURCHASE', // Removed strict type check to include all positive revenue if needed, or keep it strict?
+            // User requested "transactions" aggregation. Usually implies all revenue.
+            // Existing code used type: 'PURCHASE'. I'll stick to existing logic but just check amount > 0
+            // Actually, existing code had type: 'PURCHASE'.
             type: 'PURCHASE',
             amount: { gt: 0 }
         };
@@ -49,12 +52,28 @@ export async function GET(request: NextRequest) {
             }),
         ]);
 
-        // 2. Calculate Daily Revenue for Chart (Last 30 days)
-        // We fetch raw data to aggregate. Since we only care about dates and sum, it's efficient enough.
-        const recentTransactions = await prisma.transaction.findMany({
+        // 2. Calculate Chart Stats based on 'scale'
+        let chartStartDate = thirtyDaysAgo;
+        let bucketSize = 'day'; // 'hour', '6hour', 'day'
+
+        if (scale === '1D') {
+            chartStartDate = oneDayAgo;
+            bucketSize = 'hour';
+        } else if (scale === '1W') {
+            chartStartDate = sevenDaysAgo;
+            bucketSize = '6hour';
+        } else if (scale === '1M') {
+            chartStartDate = thirtyDaysAgo;
+            bucketSize = 'day';
+        } else if (scale === '1Q') {
+            chartStartDate = ninetyDaysAgo;
+            bucketSize = 'day';
+        }
+
+        const statsData = await prisma.transaction.findMany({
             where: {
                 ...revenueWhere,
-                createdAt: { gte: thirtyDaysAgo }
+                createdAt: { gte: chartStartDate }
             },
             select: {
                 createdAt: true,
@@ -62,30 +81,7 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        const dailyMap = new Map<string, number>();
-
-        // Initialize all days
-        for (let i = 0; i < 30; i++) {
-            const d = new Date(now.getTime() - (29 - i) * 24 * 60 * 60 * 1000);
-            const dateStr = d.toISOString().split('T')[0];
-            dailyMap.set(dateStr, 0);
-        }
-
-        recentTransactions.forEach(tx => {
-            if (tx.amount) {
-                const dateStr = new Date(tx.createdAt).toISOString().split('T')[0];
-                if (dailyMap.has(dateStr)) {
-                    dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + tx.amount);
-                } else {
-                    // Fallback
-                    dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + tx.amount);
-                }
-            }
-        });
-
-        const dailyStats = Array.from(dailyMap.entries())
-            .map(([date, revenue]) => ({ date, revenue }))
-            .sort((a, b) => a.date.localeCompare(b.date));
+        const dailyStats = generateRevenueChartData(statsData, chartStartDate, now, bucketSize);
 
         return NextResponse.json({
             periodRevenue: {
@@ -102,4 +98,69 @@ export async function GET(request: NextRequest) {
         const errorResponse = handleDatabaseError(error);
         return NextResponse.json(errorResponse, { status: errorResponse.status });
     }
+}
+
+function getStep(bucketSize: string): number {
+    switch (bucketSize) {
+        case 'hour': return 60 * 60 * 1000;
+        case '6hour': return 6 * 60 * 60 * 1000;
+        case 'day': return 24 * 60 * 60 * 1000;
+        default: return 24 * 60 * 60 * 1000;
+    }
+}
+
+function generateRevenueChartData(
+    data: { createdAt: Date, amount: number | null }[],
+    start: Date,
+    end: Date,
+    bucketSize: string
+) {
+    const map = new Map<string, number>();
+    const formatKey = (date: Date) => {
+        if (bucketSize === 'day') return date.toISOString().split('T')[0];
+
+        const d = new Date(date);
+        d.setMinutes(0);
+        d.setSeconds(0);
+        d.setMilliseconds(0);
+
+        if (bucketSize === '6hour') {
+            const h = d.getHours();
+            const roundedH = Math.floor(h / 6) * 6;
+            d.setHours(roundedH);
+        }
+
+        return d.toISOString();
+    };
+
+    // Initialize buckets
+    let current = new Date(start);
+    if (bucketSize === 'hour') {
+        current.setMinutes(0, 0, 0);
+    } else if (bucketSize === '6hour') {
+        current.setMinutes(0, 0, 0);
+        const h = current.getHours();
+        current.setHours(Math.floor(h / 6) * 6);
+    }
+
+    while (current <= end) {
+        map.set(formatKey(current), 0);
+        current = new Date(current.getTime() + getStep(bucketSize));
+    }
+
+    // Fill data
+    data.forEach(item => {
+        if (item.amount) {
+            const key = formatKey(new Date(item.createdAt));
+            if (map.has(key)) {
+                map.set(key, (map.get(key) || 0) + item.amount);
+            } else {
+                map.set(key, (map.get(key) || 0) + item.amount);
+            }
+        }
+    });
+
+    return Array.from(map.entries())
+        .map(([date, revenue]) => ({ date, revenue }))
+        .sort((a, b) => a.date.localeCompare(b.date));
 }

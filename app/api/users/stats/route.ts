@@ -7,35 +7,17 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const userId = searchParams.get('userId');
-        const type = searchParams.get('type');
-        const status = searchParams.get('status'); // 'ALL' or specific status
-        const scale = searchParams.get('scale') || '1M'; // '1D', '1W', '1M', '1Q'
 
-        const where: any = {};
-        if (userId) where.userId = userId;
-        if (type) where.type = type;
-        if (status && status !== 'ALL') {
-            where.status = status;
-        }
-
-        // 1. Calculate Period Stats (1d, 7d, 30d, 90d)
         const now = new Date();
         const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-        const [count1d, count7d, count30d, count90d] = await Promise.all([
-            prisma.generation.count({ where: { ...where, createdAt: { gte: oneDayAgo } } }),
-            prisma.generation.count({ where: { ...where, createdAt: { gte: sevenDaysAgo } } }),
-            prisma.generation.count({ where: { ...where, createdAt: { gte: thirtyDaysAgo } } }),
-            prisma.generation.count({ where: { ...where, createdAt: { gte: ninetyDaysAgo } } }),
-        ]);
-
-        // 2. Calculate Chart Stats based on 'scale'
+        // Calculate chart params
+        const scale = searchParams.get('scale') || '1M';
         let chartStartDate = thirtyDaysAgo;
-        let bucketSize = 'day'; // 'hour', '6hour', 'day'
+        let bucketSize = 'day';
 
         if (scale === '1D') {
             chartStartDate = oneDayAgo;
@@ -51,20 +33,53 @@ export async function GET(request: NextRequest) {
             bucketSize = 'day';
         }
 
-        // Fetch basic data for aggregation
-        // Optimization: For 1Q/1M we only need dates.
-        const statsData = await prisma.generation.findMany({
+        // Determine the earliest date we need data for
+        // We need 90 days for stats cards, and chartStartDate for the chart
+        // Since max chart range is 1Q (90 days), ninetyDaysAgo covers everything usually.
+        // But let's be safe and take the min.
+        const minDate = new Date(Math.min(ninetyDaysAgo.getTime(), chartStartDate.getTime()));
+
+        // Single DB query for all required data
+        const statsData = await prisma.user.findMany({
             where: {
-                ...where,
-                createdAt: { gte: chartStartDate }
+                createdAt: { gte: minDate }
             },
             select: {
                 createdAt: true
+            },
+            orderBy: {
+                createdAt: 'asc'
             }
         });
 
-        // 3. Generate Chart Data
-        const chartStats = generateChartData(statsData, chartStartDate, now, bucketSize);
+        // 1. Calculate Period Stats in memory
+        let count1d = 0;
+        let count7d = 0;
+        let count30d = 0;
+        let count90d = 0;
+
+        const oneDayTime = oneDayAgo.getTime();
+        const sevenDaysTime = sevenDaysAgo.getTime();
+        const thirtyDaysTime = thirtyDaysAgo.getTime();
+        const ninetyDaysTime = ninetyDaysAgo.getTime();
+
+        for (const user of statsData) {
+            const time = user.createdAt.getTime();
+            if (time >= oneDayTime) count1d++;
+            if (time >= sevenDaysTime) count7d++;
+            if (time >= thirtyDaysTime) count30d++;
+            if (time >= ninetyDaysTime) count90d++;
+        }
+
+        // 2. Calculate Chart Stats
+        // We filter statsData again to only include points for the chart range if needed,
+        // but generateChartData logic typically handles start/end boundaries or we can slice.
+        // generateChartData iterates and counts.
+        // We can pass the full statsData, or filtered.
+        // Let's filter slightly to match chartStartDate strictly for valid graph
+        const chartDataSubset = statsData.filter(u => u.createdAt >= chartStartDate);
+
+        const chartStats = generateChartData(chartDataSubset, chartStartDate, now, bucketSize);
 
         return NextResponse.json({
             periodStats: {
@@ -73,11 +88,11 @@ export async function GET(request: NextRequest) {
                 day30: count30d,
                 day90: count90d
             },
-            dailyStats: chartStats // Retaining key name 'dailyStats' for backward compatibility or updating frontend to use it
+            chartStats
         });
 
     } catch (error) {
-        console.error('Error fetching stats:', error);
+        console.error('Error fetching user stats:', error);
         const errorResponse = handleDatabaseError(error);
         return NextResponse.json(errorResponse, { status: errorResponse.status });
     }
@@ -102,6 +117,9 @@ function generateChartData(
     const formatKey = (date: Date) => {
         if (bucketSize === 'day') return date.toISOString().split('T')[0];
 
+        // For sub-day resolution, we want a readable label or sortable key
+        // Let's return ISO string for safety, frontend can format
+        // But we need to round the date to the bucket
         const d = new Date(date);
         d.setMinutes(0);
         d.setSeconds(0);
@@ -113,17 +131,26 @@ function generateChartData(
             d.setHours(roundedH);
         }
 
+        // For 'hour', it's already rounded to hour
+
         return d.toISOString();
     };
 
     // Initialize buckets
     let current = new Date(start);
+    // Align start for sub-day buckets to nice boundaries if needed
     if (bucketSize === 'hour') {
         current.setMinutes(0, 0, 0);
     } else if (bucketSize === '6hour') {
         current.setMinutes(0, 0, 0);
         const h = current.getHours();
         current.setHours(Math.floor(h / 6) * 6);
+    } else {
+        // Day: reset to midnight?
+        // Actually usually we want "Last 24h" vs "Calendar Day".
+        // The prompt says "1 Day (scale by hours)". This usually means "Last 24 hours".
+        // "1 Week (scale by ...)". This usually means "Last 7 days".
+        // Let's treat start as the beginning of the bucket.
     }
 
     while (current <= end) {
@@ -134,9 +161,20 @@ function generateChartData(
     // Fill data
     data.forEach(item => {
         const key = formatKey(new Date(item.createdAt));
+        // We might need to handle items slightly outside the initialized range (e.g. slight ms difference)
+        // or just use map.set if we want to include them. 
+        // But better to check if key exists to keep graph clean
         if (map.has(key)) {
             map.set(key, (map.get(key) || 0) + 1);
         } else {
+            // Try searching for the closest bucket? 
+            // Or just ignore. The query filtered by `gte start`, so it should be fine.
+            // But `start` in query is exact time, `start` in loop is rounded.
+            // If query start is 14:32, and data is 14:35.
+            // Loop start (1D, hour) -> 14:00. Key 14:00.
+            // Data 14:35 -> Key 14:00. It matches.
+            // It should be fine.
+            // Safety fallback:
             map.set(key, (map.get(key) || 0) + 1);
         }
     });

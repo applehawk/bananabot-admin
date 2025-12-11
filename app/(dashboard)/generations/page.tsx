@@ -83,7 +83,6 @@ function GenerationsContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Pagination State
-  // Pagination State
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [totalGenerations, setTotalGenerations] = useState(0);
@@ -94,12 +93,15 @@ function GenerationsContent() {
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
+  const [chartScale, setChartScale] = useState<'1D' | '1W' | '1M' | '1Q'>('1M');
+
   const fetchStats = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (userId) params.append('userId', userId);
       if (typeFilter) params.append('type', typeFilter);
       if (statusFilter) params.append('status', statusFilter);
+      params.append('scale', chartScale);
 
       const res = await fetch(`/admin/api/generations/stats?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch stats');
@@ -110,7 +112,7 @@ function GenerationsContent() {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  }, [userId, typeFilter, statusFilter]);
+  }, [userId, typeFilter, statusFilter, chartScale]);
 
   const fetchGenerations = useCallback(async () => {
     setLoading(true);
@@ -186,9 +188,6 @@ function GenerationsContent() {
     };
   }, [viewMode, loading, page, totalPages]);
 
-  // Reset page when userId changes (navigation)
-
-
   // Fetch data when dependencies change
   useEffect(() => {
     fetchGenerations();
@@ -216,18 +215,6 @@ function GenerationsContent() {
     setSelectedGeneration(generation);
     setIsModalOpen(true);
   };
-
-
-  // Filter generations for display in table
-  const filteredGenerations = generations.filter(gen => {
-    // Apply status filter
-    const matchesStatus = statusFilter === 'ALL' || gen.status === 'COMPLETED';
-
-    // Apply type filter
-    const matchesType = !typeFilter || gen.type === typeFilter;
-
-    return matchesStatus && matchesType;
-  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -263,9 +250,7 @@ function GenerationsContent() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-6 rounded-lg shadow">
@@ -292,11 +277,39 @@ function GenerationsContent() {
 
         {/* Chart */}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Daily Generations (Last 30 Days)</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Generations Overview
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                ({chartScale === '1D' ? 'Last 24 Hours' :
+                  chartScale === '1W' ? 'Last 7 Days' :
+                    chartScale === '1M' ? 'Last 30 Days' : 'Last Quarter'})
+              </span>
+            </h2>
+            <div className="flex bg-gray-100 p-0.5 rounded-lg">
+              {(['1D', '1W', '1M', '1Q'] as const).map((scale) => (
+                <button
+                  key={scale}
+                  onClick={() => setChartScale(scale)}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${chartScale === scale
+                    ? 'bg-white shadow text-blue-600'
+                    : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                >
+                  {scale}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-64">
             <Line
               data={{
-                labels: dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })),
+                labels: dailyStats.map(stat => {
+                  const d = new Date(stat.date);
+                  if (chartScale === '1D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  if (chartScale === '1W') return d.toLocaleDateString([], { weekday: 'short', hour: '2-digit' });
+                  return d.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
+                }),
                 datasets: [
                   {
                     label: 'Generations',
@@ -428,8 +441,6 @@ function GenerationsContent() {
               </table>
             </div>
 
-
-
             {/* Infinite Scroll Sentinel */}
             {viewMode === 'infinite' && (
               <div ref={sentinelRef} className="h-20 flex items-center justify-center">
@@ -442,7 +453,6 @@ function GenerationsContent() {
         )}
         {viewMode === 'pagination' && (
           <div className="flex items-center justify-between mt-4">
-            {/* ... existing pagination controls ... */}
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -493,11 +503,9 @@ function GenerationsContent() {
                     <span aria-hidden="true">&larr;</span>
                   </button>
 
-                  {/* Page Numbers - Simplified for now */}
                   {[...Array(Math.min(5, totalPages))].map((_, idx) => {
                     let pNum = page;
                     if (totalPages > 5) {
-                      // Simple logic to keep current page visible
                       if (page <= 3) {
                         pNum = idx + 1;
                       } else if (page >= totalPages - 2) {
@@ -545,8 +553,8 @@ function GenerationsContent() {
           </div>
 
         )}
-      </main>
-    </div >
+      </div>
+    </div>
   );
 }
 

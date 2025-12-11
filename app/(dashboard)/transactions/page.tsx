@@ -88,7 +88,26 @@ function TransactionsContent() {
   const searchParams = useSearchParams();
   const userId = searchParams?.get('userId');
 
-  // ... (fetchStats remains same) ...
+  const [chartScale, setChartScale] = useState<'1D' | '1W' | '1M' | '1Q'>('1M');
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId);
+      params.append('scale', chartScale);
+
+      const res = await fetch(`/admin/api/transactions/stats?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch stats');
+
+      const data = await res.json();
+      setDailyStats(data.dailyStats || []);
+      setPeriodRevenue(data.periodRevenue || { day1: 0, day7: 0, day30: 0, day90: 0 });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, [userId, chartScale]);
+
+  // ... (fetchTransactions) ...
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -168,6 +187,11 @@ function TransactionsContent() {
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
+
+  // Fetch stats when dependencies change
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const togglePaymentMethod = (method: string) => {
     setPaymentMethods(prev =>
@@ -252,11 +276,39 @@ function TransactionsContent() {
 
         {/* Chart */}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Daily Revenue (Last 30 Days)</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Transaction Overview
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                ({chartScale === '1D' ? 'Last 24 Hours' :
+                  chartScale === '1W' ? 'Last 7 Days' :
+                    chartScale === '1M' ? 'Last 30 Days' : 'Last Quarter'})
+              </span>
+            </h2>
+            <div className="flex bg-gray-100 p-0.5 rounded-lg">
+              {(['1D', '1W', '1M', '1Q'] as const).map((scale) => (
+                <button
+                  key={scale}
+                  onClick={() => setChartScale(scale)}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${chartScale === scale
+                      ? 'bg-white shadow text-blue-600'
+                      : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                >
+                  {scale}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-64">
             <Line
               data={{
-                labels: dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })),
+                labels: dailyStats.map(stat => {
+                  const d = new Date(stat.date);
+                  if (chartScale === '1D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  if (chartScale === '1W') return d.toLocaleDateString([], { weekday: 'short', hour: '2-digit' });
+                  return d.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
+                }),
                 datasets: [
                   {
                     label: 'Revenue (₽)',
