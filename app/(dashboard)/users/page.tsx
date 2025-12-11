@@ -59,6 +59,14 @@ export default function UsersPage() {
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [databaseError, setDatabaseError] = useState(false);
 
+  // Filter State
+  const [minCredits, setMinCredits] = useState<string>('');
+  const [maxGenerations, setMaxGenerations] = useState<string>('');
+  const [expiringCredits, setExpiringCredits] = useState<string>('');
+  const [expiringDays, setExpiringDays] = useState<string>('');
+  const [excludeHours, setExcludeHours] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
+
   // Pagination State
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -130,6 +138,15 @@ export default function UsersPage() {
       params.append('limit', limit.toString());
       if (searchTerm) params.append('search', searchTerm);
 
+      // Append filters
+      if (minCredits) params.append('minCredits', minCredits);
+      if (maxGenerations) params.append('maxGenerations', maxGenerations);
+      if (expiringCredits && expiringDays) {
+        params.append('maxCredits', expiringCredits);
+        params.append('daysSinceLastTopUp', expiringDays);
+      }
+      if (excludeHours) params.append('excludeBroadcastsHours', excludeHours);
+
       const res = await fetch(`/admin/api/users?${params.toString()}`);
       const data = await res.json();
 
@@ -161,7 +178,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, searchTerm, viewMode]);
+  }, [page, limit, searchTerm, viewMode, minCredits, maxGenerations, expiringCredits, expiringDays, excludeHours]);
 
   // Reset page when search or view mode changes
   useEffect(() => {
@@ -171,6 +188,11 @@ export default function UsersPage() {
       window.scrollTo(0, 0);
     }
   }, [viewMode, searchTerm]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [minCredits, maxGenerations, expiringCredits, expiringDays, excludeHours]);
 
   // Infinite Scroll Observer
   useEffect(() => {
@@ -441,8 +463,8 @@ export default function UsersPage() {
                   key={scale}
                   onClick={() => setChartScale(scale)}
                   className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${chartScale === scale
-                      ? 'bg-white shadow text-blue-600'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-white shadow text-blue-600'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   {scale}
@@ -495,15 +517,98 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search by username, name or Telegram ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+        {/* Search and Filters */}
+        <div className="mb-6 space-y-4">
+          <div className="flex gap-4">
+            <input
+              type="text"
+              placeholder="Search by username, name or Telegram ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${showFilters ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+              </svg>
+              Filters
+            </button>
+          </div>
+
+          {showFilters && (
+            <div className="bg-white p-4 rounded-lg shadow border border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-2">
+
+              {/* Balance Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Min Balance</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 100"
+                  value={minCredits}
+                  onChange={(e) => setMinCredits(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Users with at least this amount.</p>
+              </div>
+
+              {/* Generations Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Generations</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 0"
+                  value={maxGenerations}
+                  onChange={(e) => setMaxGenerations(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Users with &le; N generations.</p>
+              </div>
+
+              {/* Expiring/Inactive Filter */}
+              <div className="bg-orange-50 p-3 rounded border border-orange-100">
+                <label className="block text-sm font-medium text-orange-900 mb-2">Expiring / Inactive Users</label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      placeholder="Max Cr."
+                      value={expiringCredits}
+                      onChange={(e) => setExpiringCredits(e.target.value)}
+                      className="w-full px-2 py-2 border border-orange-200 rounded focus:ring-orange-500 focus:border-orange-500 text-sm"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      placeholder="Days"
+                      value={expiringDays}
+                      onChange={(e) => setExpiringDays(e.target.value)}
+                      className="w-full px-2 py-2 border border-orange-200 rounded focus:ring-orange-500 focus:border-orange-500 text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-orange-700 mt-1">
+                  Max credits & No top-up days
+                </p>
+              </div>
+
+              {/* Broadcast Exclusion Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Exclude Recent Broadcasts</label>
+                <input
+                  type="number"
+                  placeholder="Hours e.g. 24"
+                  value={excludeHours}
+                  onChange={(e) => setExcludeHours(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Not contacted in X hrs.</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {
