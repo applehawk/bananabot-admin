@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 import SendMessageModal from '@/components/SendMessageModal';
+import SendBroadcastModal from '@/components/SendBroadcastModal';
 import UserDetailsModal from '@/components/UserDetailsModal';
 // ... imports ...
 import {
@@ -79,7 +80,11 @@ export default function UsersPage() {
   const [models, setModels] = useState<any[]>([]);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [selectedBatchModel, setSelectedBatchModel] = useState('');
+  const [batchCredits, setBatchCredits] = useState(0);
   const [batchUpdating, setBatchUpdating] = useState(false);
+
+  // Broadcast Modal State
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
 
   useEffect(() => {
     fetchModels();
@@ -347,6 +352,14 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Broadcast Modal */}
+      <SendBroadcastModal
+        userIds={selectedUserIds}
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        onSuccess={() => setSelectedUserIds(new Set())}
+      />
+
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">👥 Users</h1>
@@ -391,9 +404,16 @@ export default function UsersPage() {
               >
                 Clear Selection
               </button>
+              <button
+                onClick={() => setIsBroadcastModalOpen(true)}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 transition-colors"
+              >
+                Broadcast to Selected
+              </button>
             </div>
           </div>
-        )}
+        )
+        }
 
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4 mb-6">
@@ -473,158 +493,164 @@ export default function UsersPage() {
           />
         </div>
 
-        {loading && users.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left">
-                    <input
-                      type="checkbox"
-                      // Select all effectively checks if all visible are selected
-                      checked={users.length > 0 && users.every(u => selectedUserIds.has(u.id))}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telegram ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Free Used</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Generated</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr
-                    key={user.id}
-                    className={`cursor-pointer transition-colors ${selectedUserIds.has(user.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                    onClick={() => { setSelectedUserId(user.id); setIsUserDetailsOpen(true); }}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+        {
+          loading && users.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left">
                       <input
                         type="checkbox"
-                        checked={selectedUserIds.has(user.id)}
-                        onChange={() => handleSelectUser(user.id)}
+                        // Select all effectively checks if all visible are selected
+                        checked={users.length > 0 && users.every(u => selectedUserIds.has(u.id))}
+                        onChange={handleSelectAll}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-blue-600 hover:text-blue-800">{user.firstName || user.username || 'Unknown'}</div>
-                      {user.username && <div className="text-sm text-gray-500">@{user.username}</div>}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.telegramId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-sm font-medium bg-green-100 text-green-800 rounded">{user.credits.toFixed(1)}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.freeCreditsUsed}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGenerated}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td
-                      className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={() => handleSendMessage(user)}
-                        className="text-blue-500 hover:text-blue-700 font-medium"
-                      >
-                        Message
-                      </button>
-
-                    </td>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telegram ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Free Used</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Generated</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map((user) => (
+                    <tr
+                      key={user.id}
+                      className={`cursor-pointer transition-colors ${selectedUserIds.has(user.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                      onClick={() => { setSelectedUserId(user.id); setIsUserDetailsOpen(true); }}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.has(user.id)}
+                          onChange={() => handleSelectUser(user.id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-blue-600 hover:text-blue-800">{user.firstName || user.username || 'Unknown'}</div>
+                        {user.username && <div className="text-sm text-gray-500">@{user.username}</div>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.telegramId}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-sm font-medium bg-green-100 text-green-800 rounded">{user.credits.toFixed(1)}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.freeCreditsUsed}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGenerated}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</td>
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => handleSendMessage(user)}
+                          className="text-blue-500 hover:text-blue-700 font-medium"
+                        >
+                          Message
+                        </button>
+
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
 
         {/* Infinite Scroll Sentinel */}
-        {viewMode === 'infinite' && (
-          <div ref={sentinelRef} className="h-20 flex items-center justify-center">
-            {loading && page > 1 && (
-              <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent"></div>
-            )}
-          </div>
-        )}
+        {
+          viewMode === 'infinite' && (
+            <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+              {loading && page > 1 && (
+                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent"></div>
+              )}
+            </div>
+          )
+        }
 
         {/* Pagination Controls */}
-        {viewMode === 'pagination' && (
-          <div className="flex items-center justify-between mt-4">
-            {/* Simple Pagination for now */}
-            <div className="flex-1 flex justify-between sm:hidden">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                Next
-              </button>
-            </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(page * limit, totalUsers)}</span> of <span className="font-medium">{totalUsers}</span> results
-                </p>
+        {
+          viewMode === 'pagination' && (
+            <div className="flex items-center justify-between mt-4">
+              {/* Simple Pagination for now */}
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  Next
+                </button>
               </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                  {/* Simplified Previous/Next since full pagination numbers are verbose */}
-                  <button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    Previous
-                  </button>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(page * limit, totalUsers)}</span> of <span className="font-medium">{totalUsers}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    {/* Simplified Previous/Next since full pagination numbers are verbose */}
+                    <button
+                      onClick={() => setPage(Math.max(1, page - 1))}
+                      disabled={page === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      Previous
+                    </button>
 
-                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                    // Very basic sliding window
-                    let pNum = idx + 1;
-                    if (totalPages > 5 && page > 3) pNum = page - 2 + idx;
-                    if (pNum > totalPages) return null;
+                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                      // Very basic sliding window
+                      let pNum = idx + 1;
+                      if (totalPages > 5 && page > 3) pNum = page - 2 + idx;
+                      if (pNum > totalPages) return null;
 
-                    return (
-                      <button
-                        key={pNum}
-                        onClick={() => setPage(pNum)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pNum
-                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          }`}
-                      >
-                        {pNum}
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={pNum}
+                          onClick={() => setPage(pNum)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page === pNum
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
 
-                  <button
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                    disabled={page === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    Next
-                  </button>
-                </nav>
+                    <button
+                      onClick={() => setPage(Math.min(totalPages, page + 1))}
+                      disabled={page === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }

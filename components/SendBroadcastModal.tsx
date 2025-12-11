@@ -2,27 +2,32 @@
 
 import { useState, useEffect } from 'react';
 
-interface SendMessageModalProps {
-    userId: string;
+interface SendBroadcastModalProps {
+    userIds: Set<string>;
     isOpen: boolean;
     onClose: () => void;
-    username?: string;
+    onSuccess?: () => void;
 }
 
-interface Message {
-    id: string;
-    message: string;
-    sentAt: string;
-    isBroadcast: boolean;
-    status: string;
-    error?: string;
-}
+const TIMEZONES = [
+    { value: '+03:00', label: 'Moscow (UTC+3)' },
+    { value: '+00:00', label: 'UTC' },
+    { value: '+01:00', label: 'CET (UTC+1)' },
+    { value: '+02:00', label: 'EET (UTC+2)' },
+    { value: '+04:00', label: 'Dubai (UTC+4)' },
+    { value: '+05:00', label: 'Yekaterinburg (UTC+5)' },
+    { value: '+08:00', label: 'Singapore (UTC+8)' },
+    { value: '-05:00', label: 'New York (UTC-5)' },
+    { value: '-08:00', label: 'Los Angeles (UTC-8)' },
+];
 
-export default function SendMessageModal({ userId, isOpen, onClose, username }: SendMessageModalProps) {
+export default function SendBroadcastModal({ userIds, isOpen, onClose, onSuccess }: SendBroadcastModalProps) {
     const [message, setMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const [history, setHistory] = useState<Message[]>([]);
-    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // Scheduling
+    const [scheduledFor, setScheduledFor] = useState('');
+    const [timezone, setTimezone] = useState('+03:00');
 
     // Custom Package State
     const [showPackageForm, setShowPackageForm] = useState(false);
@@ -36,44 +41,35 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
     const [pkgCredits, setPkgCredits] = useState('');
 
     useEffect(() => {
-        if (isOpen && userId) {
-            fetchHistory();
+        if (isOpen) {
             fetchPackages();
         }
-    }, [isOpen, userId]);
+    }, [isOpen]);
 
     const fetchPackages = async () => {
         try {
             const res = await fetch('/admin/api/packages');
             if (res.ok) {
                 const data = await res.json();
-                setPackages(data); // Allow inactive packages for special offers
+                setPackages(data);
             }
         } catch (error) {
             console.error('Failed to load packages', error);
         }
     };
 
-    const fetchHistory = async () => {
-        // ... (existing fetchHistory) -> I'll copy existing implementation just in case, but since I am replacing the block containing state, I need to keep it.
-        try {
-            setIsLoadingHistory(true);
-            const res = await fetch(`/admin/api/users/${userId}/send-message`);
-            if (res.ok) {
-                const data = await res.json();
-                setHistory(data);
-            }
-        } catch (error) {
-            console.error('Failed to load history', error);
-        } finally {
-            setIsLoadingHistory(false);
-        }
-    };
-
     const handleSend = async () => {
         if (!message.trim()) return;
 
-        let payload: any = { message };
+        let payload: any = {
+            message,
+            targetUserIds: Array.from(userIds)
+        };
+
+        if (scheduledFor) {
+            const dateStr = `${scheduledFor}:00${timezone}`;
+            payload.scheduledFor = dateStr;
+        }
 
         if (showPackageForm) {
             if (packageMode === 'custom') {
@@ -97,23 +93,26 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
 
         try {
             setIsSending(true);
-            const res = await fetch(`/admin/api/users/${userId}/send-message`, {
+            const res = await fetch('/admin/api/broadcasts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
 
             const data = await res.json();
-            if (data.success) {
+            if (res.ok) {
+                alert(`Broadcast created for ${userIds.size} users`);
+                onClose();
+                if (onSuccess) onSuccess();
+                // Reset form
                 setMessage('');
-                fetchHistory();
-                // Reset form?
-                // setShowPackageForm(false); 
+                setScheduledFor('');
+                setShowPackageForm(false);
             } else {
                 alert('Failed: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
-            alert('Error sending message');
+            alert('Error creating broadcast');
         } finally {
             setIsSending(false);
         }
@@ -126,7 +125,7 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
             <div className="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-medium leading-6 text-gray-900">
-                        Message to {username || userId}
+                        Broadcast to {userIds.size} Selected Users
                     </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                         <span className="text-2xl">&times;</span>
@@ -135,13 +134,46 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
 
                 <div className="mb-6">
                     <textarea
-                        className="w-full p-2 border rounded-md"
+                        className="w-full p-2 border rounded-md mb-4"
                         rows={3}
-                        placeholder="Type your message here (Markdown supported by Bot)..."
+                        placeholder="Type your broadcast message here..."
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                     />
-                    <div className="mt-4 border-t pt-4">
+
+                    {/* Scheduling */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Schedule Start
+                            </label>
+                            <input
+                                type="datetime-local"
+                                className="w-full p-2 border rounded-md"
+                                value={scheduledFor}
+                                onChange={(e) => setScheduledFor(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Timezone
+                            </label>
+                            <select
+                                className="w-full p-2 border rounded-md"
+                                value={timezone}
+                                onChange={(e) => setTimezone(e.target.value)}
+                            >
+                                {TIMEZONES.map((tz) => (
+                                    <option key={tz.value} value={tz.value}>
+                                        {tz.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Package Selection */}
+                    <div className="border-t pt-4">
                         <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -227,41 +259,22 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
                             </div>
                         )}
                     </div>
-                    <div className="mt-4 text-right">
+
+                    <div className="mt-6 text-right space-x-3">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        >
+                            Cancel
+                        </button>
                         <button
                             onClick={handleSend}
                             disabled={isSending || !message.trim()}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                         >
-                            {isSending ? 'Sending...' : 'Send Message'}
+                            {isSending ? 'Creating...' : 'Create Broadcast'}
                         </button>
                     </div>
-                </div>
-
-                <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">History</h4>
-                    {isLoadingHistory ? (
-                        <div className="text-center py-4">Loading...</div>
-                    ) : (
-                        <div className="max-h-60 overflow-y-auto space-y-3">
-                            {history.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center">No messages sent yet.</p>
-                            ) : (
-                                history.map((msg) => (
-                                    <div key={msg.id} className={`p-3 rounded-lg text-sm ${msg.isBroadcast ? 'bg-purple-50' : 'bg-gray-50'}`}>
-                                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                            <span>{new Date(msg.sentAt).toLocaleString()}</span>
-                                            <span className={`font-semibold ${msg.status === 'SENT' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {msg.isBroadcast ? 'BROADCAST' : 'DIRECT'} - {msg.status}
-                                            </span>
-                                        </div>
-                                        <p className="whitespace-pre-wrap text-gray-800">{msg.message}</p>
-                                        {msg.error && <p className="text-red-500 text-xs mt-1">Error: {msg.error}</p>}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

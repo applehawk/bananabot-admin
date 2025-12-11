@@ -4,6 +4,19 @@ import { useState, useEffect } from 'react';
 
 import { Broadcast } from '@prisma/client';
 
+const TIMEZONES = [
+    { value: '+03:00', label: 'Moscow (UTC+3)' },
+    { value: '+00:00', label: 'UTC' },
+    { value: '+01:00', label: 'CET (UTC+1)' },
+    { value: '+02:00', label: 'EET (UTC+2)' },
+    { value: '+04:00', label: 'Dubai (UTC+4)' },
+    { value: '+05:00', label: 'Yekaterinburg (UTC+5)' },
+    { value: '+08:00', label: 'Singapore (UTC+8)' },
+    { value: '-05:00', label: 'New York (UTC-5)' },
+    { value: '-08:00', label: 'Los Angeles (UTC-8)' },
+];
+
+
 export default function BroadcastsPage() {
     const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
     const [loading, setLoading] = useState(true);
@@ -12,6 +25,8 @@ export default function BroadcastsPage() {
 
     const [targetNotSubscribed, setTargetNotSubscribed] = useState(false);
     const [botToken, setBotToken] = useState('');
+    const [scheduledFor, setScheduledFor] = useState('');
+    const [timezone, setTimezone] = useState('+03:00');
 
     // Package State
     const [showPackageForm, setShowPackageForm] = useState(false);
@@ -67,6 +82,12 @@ export default function BroadcastsPage() {
             botToken
         };
 
+        if (scheduledFor) {
+            // Treat input as selected timezone
+            const dateStr = `${scheduledFor}:00${timezone}`;
+            payload.scheduledFor = dateStr;
+        }
+
         if (showPackageForm) {
             if (packageMode === 'custom') {
                 if (!pkgName || !pkgPrice || !pkgCredits) {
@@ -98,6 +119,8 @@ export default function BroadcastsPage() {
             if (res.ok) {
                 setMessage('');
                 setBotToken('');
+                setScheduledFor('');
+                setTimezone('+03:00');
                 setTargetNotSubscribed(false);
                 setShowPackageForm(false);
                 setPkgName('');
@@ -165,6 +188,36 @@ export default function BroadcastsPage() {
                             value={botToken}
                             onChange={(e) => setBotToken(e.target.value)}
                         />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Schedule Start
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    className="w-full p-2 border rounded-md"
+                                    value={scheduledFor}
+                                    onChange={(e) => setScheduledFor(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Timezone
+                                </label>
+                                <select
+                                    className="w-full p-2 border rounded-md"
+                                    value={timezone}
+                                    onChange={(e) => setTimezone(e.target.value)}
+                                >
+                                    {TIMEZONES.map((tz) => (
+                                        <option key={tz.value} value={tz.value}>
+                                            {tz.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
 
                         {/* Package Selection */}
                         <div className="border-t pt-4">
@@ -311,6 +364,7 @@ export default function BroadcastsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                                {b.scheduledFor && <div className="text-blue-600">Sched: {new Date(b.scheduledFor).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })} (MSK)</div>}
                                                 {b.startedAt && <div>Stats: {new Date(b.startedAt).toLocaleTimeString()}</div>}
                                                 {b.completedAt && <div>End: {new Date(b.completedAt).toLocaleTimeString()}</div>}
                                             </td>

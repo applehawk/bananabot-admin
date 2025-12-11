@@ -5,7 +5,7 @@ import { handleDatabaseError } from '@/lib/db-error-handler';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { message, scheduledFor, targetNotSubscribed, botToken, customPackage, packageId } = body;
+        const { message, scheduledFor, targetNotSubscribed, botToken, customPackage, packageId, targetUserIds } = body;
 
         if (!message || typeof message !== 'string') {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
                 targetNotSubscribed: targetNotSubscribed || false,
                 botToken: botToken || null,
                 creditPackageId: creditPackageId || null,
+                targetUserIds: targetUserIds || [],
             }
         });
 
