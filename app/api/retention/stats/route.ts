@@ -33,15 +33,23 @@ export async function GET() {
             });
         }
 
-        // Get settings
-        const settings = await prisma.systemSettings.findUnique({
-            where: { key: 'singleton' },
-            select: { isRetentionEnabled: true }
-        });
+        // Get settings and packages
+        const [settings, packages] = await Promise.all([
+            prisma.systemSettings.findUnique({
+                where: { key: 'singleton' },
+                select: { isRetentionEnabled: true, tripwirePackageId: true }
+            }),
+            prisma.creditPackage.findMany({
+                orderBy: { price: 'asc' },
+                select: { id: true, name: true, price: true, credits: true, active: true }
+            })
+        ]);
 
         return NextResponse.json({
             stats,
-            isRetentionEnabled: settings?.isRetentionEnabled ?? false
+            isRetentionEnabled: settings?.isRetentionEnabled ?? false,
+            tripwirePackageId: settings?.tripwirePackageId || null,
+            packages
         });
     } catch (error) {
         return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });

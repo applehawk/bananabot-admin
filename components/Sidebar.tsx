@@ -16,6 +16,7 @@ const navigation = [
   { name: 'Providers', href: '/providers', icon: '🔌' },
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
   { name: 'Referrals', href: '/referrals', icon: '🔗' },
+  { name: 'Retention', href: '/retention', icon: '🎣' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 
