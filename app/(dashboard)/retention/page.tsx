@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, Plus, Trash2, Save, X } from "lucide-react";
+import BurnableBonusForm from '../../../components/BurnableBonusForm';
 
 type RetentionStage = {
     id: string;
@@ -25,12 +26,40 @@ type RetentionStage = {
     activeHoursEnd?: number;
     isActive: boolean;
     buttons?: any;
+    burnableBonus?: {
+        amount: number;
+        expiresInHours: number;
+        conditionGenerations?: number;
+        conditionTopUpAmount?: number;
+    };
 };
 
 type Stats = {
     stageName: string;
     order: number;
     count: number;
+};
+
+
+type UserView = {
+    id: string;
+    telegramId: string;
+    username: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    createdAt: string;
+    lastActiveAt: string;
+    lastRetentionMessageAt: string | null;
+    retentionStage: number;
+    totalGenerated: number;
+    totalPayments: number;
+    credits: number;
+    lastGenerationAt: string | null;
+    lastPaymentAt: string | null;
+    selectedModelCost: number;
+    paymentAttempts: number;
+    hasFailedPayment: boolean;
+    lastPaymentStatus: string | null;
 };
 
 export default function RetentionPage() {
@@ -52,6 +81,19 @@ export default function RetentionPage() {
     const [packageMode, setPackageMode] = useState<'existing' | 'custom'>('existing');
     const [isRandomGen, setIsRandomGen] = useState(false);
 
+    // Bonus State
+    const [sendBonus, setSendBonus] = useState(false);
+    const [bonusAmount, setBonusAmount] = useState('');
+    const [bonusExpires, setBonusExpires] = useState('');
+    const [bonusCondType, setBonusCondType] = useState<'generations' | 'topup' | 'none'>('none');
+    const [bonusCondValue, setBonusCondValue] = useState('');
+
+    // Users List Modal State
+    const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+    const [selectedStageName, setSelectedStageName] = useState('');
+    const [selectedUsers, setSelectedUsers] = useState<UserView[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -60,7 +102,7 @@ export default function RetentionPage() {
         setLoading(true);
         try {
             // Fetch stats & settings
-            const statsRes = await fetch('/admin/api/retention/stats');
+            const statsRes = await fetch('/admin/api/retention/stats', { cache: 'no-store' });
             const statsData = await statsRes.json();
             setStats(statsData.stats || []);
             setIsEnabled(statsData.isRetentionEnabled || false);
@@ -68,7 +110,7 @@ export default function RetentionPage() {
             setTripwireId(statsData.tripwirePackageId || '');
 
             // Fetch stages
-            const stagesRes = await fetch('/admin/api/retention/stages');
+            const stagesRes = await fetch('/admin/api/retention/stages', { cache: 'no-store' });
             const stagesData = await stagesRes.json();
             setStages(stagesData || []);
 
@@ -101,21 +143,64 @@ export default function RetentionPage() {
 
     const handleSaveStage = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Logic to save stage
         const formData = new FormData(e.target as HTMLFormElement);
-        const data: any = Object.fromEntries(formData.entries());
+        const rawData: any = Object.fromEntries(formData.entries());
 
-        // Convert to numbers or null
-        data.hoursSinceRegistration = data.hoursSinceRegistration ? parseInt(data.hoursSinceRegistration) : null;
-        data.hoursSinceLastActivity = data.hoursSinceLastActivity ? parseInt(data.hoursSinceLastActivity) : null;
-        data.hoursSinceLastStage = data.hoursSinceLastStage ? parseInt(data.hoursSinceLastStage) : null;
-        data.order = parseInt(data.order);
-        data.isActive = true; // Default to true
+        // Construct the data object
+        const data: any = {
+            ...rawData,
+            // Explicitly set boolean fields from state to handle unchecked cases
+            isSpecialOffer: isSpecialOffer,
+            isRandomGenerationEnabled: isRandomGen,
+            // Parse Numbers where necessary for clarity
+            order: parseInt(rawData.order),
+
+            // Clean up empty strings to null or numbers
+            hoursSinceRegistration: rawData.hoursSinceRegistration ? parseInt(rawData.hoursSinceRegistration) : null,
+            hoursSinceLastActivity: rawData.hoursSinceLastActivity ? parseInt(rawData.hoursSinceLastActivity) : null,
+            hoursSinceLastStage: rawData.hoursSinceLastStage ? parseInt(rawData.hoursSinceLastStage) : null,
+
+            conditionGenerations: rawData.conditionGenerations ? parseInt(rawData.conditionGenerations) : null,
+            hoursSinceFirstPayment: rawData.hoursSinceFirstPayment ? parseInt(rawData.hoursSinceFirstPayment) : null,
+
+            activeHoursStart: rawData.activeHoursStart ? parseInt(rawData.activeHoursStart) : null,
+            activeHoursEnd: rawData.activeHoursEnd ? parseInt(rawData.activeHoursEnd) : null,
+
+            // Note: conditionPaymentPresent is left as string ('true'/'false'/'') to match API expectation
+        };
+
+        // Handle Custom Package vs Existing Package
+        if (isSpecialOffer) {
+            if (packageMode === 'custom') {
+                data.customPackage = {
+                    name: rawData['customPackage[name]'],
+                    price: rawData['customPackage[price]'],
+                    credits: rawData['customPackage[credits]']
+                };
+                data.packageId = null;
+            } else {
+                // packageMode === 'existing', uses data.packageId from select
+                data.customPackage = null;
+            }
+        } else {
+            // Clear package info if Special Offer is disabled
+            data.creditPackageId = null;
+            data.packageId = null;
+            data.customPackage = null;
+            data.specialOfferLabel = null;
+        }
+
+        // Clean up temp keys
+        delete data['customPackage[name]'];
+        delete data['customPackage[price]'];
+        delete data['customPackage[credits]'];
+
+        // Fix: Remove conditionType coming from BurnableBonusForm radio buttons
+        delete data['conditionType'];
 
         // Parse buttons if present
         if (data.buttons) {
             try {
-                // validation check
                 const parsed = JSON.parse(data.buttons);
                 if (!Array.isArray(parsed)) throw new Error("Buttons must be an array");
                 data.buttons = parsed;
@@ -126,6 +211,30 @@ export default function RetentionPage() {
         } else {
             data.buttons = null;
         }
+
+        // Handle Bonus
+        if (sendBonus) {
+            if (!bonusAmount || !bonusExpires) {
+                alert('Please enter Bonus Amount and Expiration');
+                return;
+            }
+            if (bonusCondType !== 'none' && !bonusCondValue) {
+                alert('Please enter Condition Value');
+                return;
+            }
+
+            data.burnableBonus = {
+                amount: Number(bonusAmount),
+                expiresInHours: Number(bonusExpires),
+                conditionGenerations: bonusCondType === 'generations' ? Number(bonusCondValue) : null,
+                conditionTopUpAmount: bonusCondType === 'topup' ? Number(bonusCondValue) : null,
+            };
+        } else {
+            data.burnableBonus = null;
+        }
+
+        // Force active
+        data.isActive = true;
 
         const method = editingStage ? 'PUT' : 'POST';
         const body = editingStage ? { ...data, id: editingStage.id } : data;
@@ -147,11 +256,38 @@ export default function RetentionPage() {
         fetchData();
     }
 
+
+
+    const handleStatClick = async (stat: Stats) => {
+        setIsUsersModalOpen(true);
+        setSelectedStageName(stat.stageName);
+        setSelectedUsers([]);
+        setLoadingUsers(true);
+        try {
+            const res = await fetch(`/admin/api/retention/stats?stage=${stat.order}`, { cache: 'no-store' });
+            const data = await res.json();
+            setSelectedUsers(data.users || []);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to load users');
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
     const openNewStageModal = () => {
         setEditingStage(null);
         setIsSpecialOffer(false);
         setPackageMode('existing');
         setIsRandomGen(false);
+
+        // Reset Bonus
+        setSendBonus(false);
+        setBonusAmount('');
+        setBonusExpires('');
+        setBonusCondType('none');
+        setBonusCondValue('');
+
         setIsModalOpen(true);
     }
 
@@ -160,6 +296,30 @@ export default function RetentionPage() {
         setIsSpecialOffer(stage.isSpecialOffer || false);
         setPackageMode('existing'); // Default, as we don't know if it was custom originally without more logic, but user can just select existing or create new custom
         setIsRandomGen(stage.isRandomGenerationEnabled || false);
+
+        // Populate Bonus
+        if (stage.burnableBonus) {
+            setSendBonus(true);
+            setBonusAmount(stage.burnableBonus.amount?.toString() || '');
+            setBonusExpires(stage.burnableBonus.expiresInHours?.toString() || '');
+            if (stage.burnableBonus.conditionGenerations) {
+                setBonusCondType('generations');
+                setBonusCondValue(stage.burnableBonus.conditionGenerations.toString());
+            } else if (stage.burnableBonus.conditionTopUpAmount) {
+                setBonusCondType('topup');
+                setBonusCondValue(stage.burnableBonus.conditionTopUpAmount.toString());
+            } else {
+                setBonusCondType('none');
+                setBonusCondValue('');
+            }
+        } else {
+            setSendBonus(false);
+            setBonusAmount('');
+            setBonusExpires('');
+            setBonusCondType('none');
+            setBonusCondValue('');
+        }
+
         setIsModalOpen(true);
     }
 
@@ -225,7 +385,9 @@ export default function RetentionPage() {
                 {stats.length > 0 && (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         {stats.map((stat) => (
-                            <div key={stat.order} className="bg-white p-6 rounded-lg shadow border border-gray-100">
+                            <div key={stat.order}
+                                onClick={() => handleStatClick(stat)}
+                                className="bg-white p-6 rounded-lg shadow border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group relative">
                                 <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">{stat.stageName}</h3>
                                 </div>
@@ -375,6 +537,20 @@ export default function RetentionPage() {
                                             placeholder='[{"text": "🔥 Get Bonus", "callback_data": "bonus_1"}]'
                                         />
                                     </div>
+
+                                    {/* Burnable Bonus Form */}
+                                    <BurnableBonusForm
+                                        enabled={sendBonus}
+                                        setEnabled={setSendBonus}
+                                        amount={bonusAmount}
+                                        setAmount={setBonusAmount}
+                                        expiresIn={bonusExpires}
+                                        setExpiresIn={setBonusExpires}
+                                        conditionType={bonusCondType}
+                                        setConditionType={setBonusCondType}
+                                        conditionValue={bonusCondValue}
+                                        setConditionValue={setBonusCondValue}
+                                    />
 
                                     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
                                         <h4 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -544,18 +720,185 @@ export default function RetentionPage() {
                                         </div>
                                     </div>
 
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">Cancel</button>
-                                <button type="submit" className="px-5 py-2.5 rounded-lg border border-transparent bg-blue-600 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center">
-                                    <Save className="mr-2 h-4 w-4" /> Save Stage
-                                </button>
+                                    <div className="flex justify-end gap-3 pt-2">
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">Cancel</button>
+                                        <button type="submit" className="px-5 py-2.5 rounded-lg border border-transparent bg-blue-600 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center">
+                                            <Save className="mr-2 h-4 w-4" /> Save Stage
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
-                        </form>
-                    </div>
                         </div>
                     </div >
                 )
-}
+                }
+                {/* Users List Modal */}
+                {isUsersModalOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-opacity">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900">Users in "{selectedStageName}"</h3>
+                                    <p className="text-sm text-gray-500">Only showing users with 0 generations (Churned)</p>
+                                </div>
+                                <button onClick={() => setIsUsersModalOpen(false)} className="text-gray-400 hover:text-gray-500 transition-colors bg-white border border-gray-200 rounded-full p-2 hover:bg-gray-100">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-auto p-0">
+                                {loadingUsers ? (
+                                    <div className="flex flex-col items-center justify-center h-64">
+                                        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
+                                        <p className="text-gray-500">Loading user list...</p>
+                                    </div>
+                                ) : (
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User / Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stats</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payments</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wait Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {selectedUsers.map((user) => {
+                                                const regDate = new Date(user.createdAt);
+                                                const activeDate = new Date(user.lastActiveAt);
+                                                const lastGenDate = user.lastGenerationAt ? new Date(user.lastGenerationAt) : null;
+                                                const lastPayDate = user.lastPaymentAt ? new Date(user.lastPaymentAt) : null;
+                                                const now = new Date();
+
+                                                const hoursSinceReg = Math.floor((now.getTime() - regDate.getTime()) / (1000 * 60 * 60));
+                                                const hoursSinceActive = Math.floor((now.getTime() - activeDate.getTime()) / (1000 * 60 * 60));
+
+                                                // Status Logic
+                                                const isDead = user.totalGenerated === 0;
+                                                const isLowBalance = user.credits < user.selectedModelCost;
+                                                const hasNeverPaid = user.totalPayments === 0;
+                                                const isFreeloader = !isDead && isLowBalance && hasNeverPaid; // "Experimenter/Freeloader": Generated until empty, never paid
+                                                // "Inactive Payer": Generated & Paid, but last payment > 48h ago
+                                                const isInactivePayer = !isDead && !hasNeverPaid && lastPayDate && (now.getTime() - lastPayDate.getTime()) > (48 * 60 * 60 * 1000);
+
+                                                const isTriedAndFailed = hasNeverPaid && user.paymentAttempts > 0;
+                                                const lastPayFailed = user.lastPaymentStatus && user.lastPaymentStatus !== 'COMPLETED';
+
+                                                let rowBg = "hover:bg-gray-50";
+                                                const badges = [];
+
+                                                if (isDead) {
+                                                    badges.push(<span key="dead" className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">💀 Dead (0 gens)</span>);
+                                                } else {
+                                                    // Active or Semi-active
+                                                    if (isTriedAndFailed) {
+                                                        badges.push(<span key="triedfailed" className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">❌ Failed Payer</span>);
+                                                        rowBg = "bg-red-50 hover:bg-red-100";
+                                                    } else if (lastPayFailed) {
+                                                        badges.push(<span key="lastfailed" className="px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 border border-pink-200">💔 Last Pay Failed</span>);
+                                                        // Use a subtle red tint if not already overridden
+                                                        if (rowBg.includes('gray')) rowBg = "bg-pink-50 hover:bg-pink-100";
+                                                    }
+
+                                                    if (isFreeloader) {
+                                                        badges.push(<span key="freeloader" className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">🧪 Freeloader</span>);
+                                                        if (!isTriedAndFailed) rowBg = "bg-orange-50 hover:bg-orange-100";
+                                                    } else if (isLowBalance && !hasNeverPaid) {
+                                                        badges.push(<span key="lowbal" className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">⚠️ Low Bal</span>);
+                                                    }
+
+                                                    if (hasNeverPaid && !isTriedAndFailed) {
+                                                        badges.push(<span key="nopay" className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">💸 No Pay</span>);
+                                                    }
+
+                                                    if (isInactivePayer) {
+                                                        badges.push(<span key="inactivepayer" className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">💤 Inactive Payer</span>);
+                                                    }
+                                                }
+
+                                                return (
+                                                    <tr key={user.id} className={`${rowBg} transition-colors`}>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center">
+                                                                <div className="text-sm font-medium text-gray-900">
+                                                                    {user.firstName} {user.lastName}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 font-mono mb-1">
+                                                                @{user.username || 'no_username'} • {user.telegramId.toString()}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {badges}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            <div className="font-semibold">{user.totalGenerated} gens</div>
+                                                            <div className="text-xs text-gray-400">Bal: {user.credits.toFixed(1)} cr</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div>
+                                                                    <span className="text-xs uppercase text-gray-400">Active:</span> {activeDate.toLocaleDateString()}
+                                                                </div>
+                                                                {lastGenDate ? (
+                                                                    <div>
+                                                                        <span className="text-xs uppercase text-gray-400">Gen:</span> <span title={lastGenDate.toLocaleString()}>{Math.floor((now.getTime() - lastGenDate.getTime()) / (1000 * 3600))}h ago</span>
+                                                                    </div>
+                                                                ) : <div className="text-gray-300 text-xs">No gens</div>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            <div className="text-green-600 font-medium">
+                                                                {user.totalPayments > 0 ? `${user.totalPayments} RUB` : (isTriedAndFailed ? <span className="text-red-500">Failed ({user.paymentAttempts})</span> : '-')}
+                                                                {lastPayFailed && user.totalPayments > 0 && <span className="text-red-400 text-xs block">Last Failed</span>}
+                                                            </div>
+                                                            {lastPayDate && (
+                                                                <div className="text-xs text-gray-400" title={lastPayDate.toLocaleString()}>
+                                                                    Last: {Math.floor((now.getTime() - lastPayDate.getTime()) / (1000 * 3600))}h ago
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            <div>{regDate.toLocaleDateString()}</div>
+                                                            <div className="text-xs text-gray-400">{regDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100">
+                                                                    Reg: {hoursSinceReg}h ago
+                                                                </span>
+                                                                <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100">
+                                                                    Active: {hoursSinceActive}h ago
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {selectedUsers.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                                        No users found in this stage matching criteria.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
+                                <button
+                                    onClick={() => setIsUsersModalOpen(false)}
+                                    className="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main >
         </div >
     );

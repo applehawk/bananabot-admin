@@ -392,6 +392,61 @@ export default function UserDetailsModal({ userId, isOpen, onClose, onUpdate }: 
                                     </div>
                                 </div>
 
+                                {/* Generation Settings */}
+                                <div className="bg-white p-4 rounded shadow-sm">
+                                    <h4 className="font-semibold text-gray-700 mb-2">Generation Settings</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span className="text-gray-600 font-medium">Auto Enhance:</span>
+                                            <div className="mt-1">
+                                                {data.user.settings?.autoEnhance ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                        ✅ Enabled
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                        ⚪️ Disabled
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {/* Display only simple settings here, prompt is large */}
+                                        <div>
+                                            <span className="text-gray-600 font-medium">Model:</span>
+                                            <div className="mt-1 text-gray-900">
+                                                {data.user.settings?.selectedModelId || 'Default'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600 font-medium">Aspect Ratio:</span>
+                                            <div className="mt-1 text-gray-900">
+                                                {data.user.settings?.aspectRatio || '1:1'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600 font-medium">HD Quality:</span>
+                                            <div className="mt-1">
+                                                {data.user.settings?.hdQuality ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                        💎 On
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                        Off
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <span className="text-gray-600 font-medium">Enhancement Prompt:</span>
+                                        <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded text-xs font-mono text-gray-700 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                            {data.user.settings?.enhancementPrompt || 'N/A'}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Metadata / Details */}
                                 <div className="bg-white p-4 rounded shadow-sm">
                                     <h4 className="font-semibold text-gray-700 mb-2">Technical Details</h4>

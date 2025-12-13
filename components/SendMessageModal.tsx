@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import BurnableBonusForm from './BurnableBonusForm';
 
 interface SendMessageModalProps {
     userId: string;
@@ -35,6 +36,13 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
     const [pkgPrice, setPkgPrice] = useState('');
     const [pkgCredits, setPkgCredits] = useState('');
 
+    // Burnable Bonus State
+    const [sendBonus, setSendBonus] = useState(false);
+    const [bonusAmount, setBonusAmount] = useState('50');
+    const [bonusExpires, setBonusExpires] = useState('24');
+    const [bonusCondType, setBonusCondType] = useState<'generations' | 'topup' | 'none'>('generations');
+    const [bonusCondValue, setBonusCondValue] = useState('1');
+
     useEffect(() => {
         if (isOpen && userId) {
             fetchHistory();
@@ -55,7 +63,6 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
     };
 
     const fetchHistory = async () => {
-        // ... (existing fetchHistory) -> I'll copy existing implementation just in case, but since I am replacing the block containing state, I need to keep it.
         try {
             setIsLoadingHistory(true);
             const res = await fetch(`/admin/api/users/${userId}/send-message`);
@@ -71,7 +78,7 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
     };
 
     const handleSend = async () => {
-        if (!message.trim()) return;
+        if (!message.trim() && !sendBonus) return;
 
         let payload: any = { message };
 
@@ -95,6 +102,25 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
             }
         }
 
+        // Add Bonus Payload
+        if (sendBonus) {
+            if (!bonusAmount || !bonusExpires) {
+                alert('Please enter Bonus Amount and Expiration');
+                return;
+            }
+            if (bonusCondType !== 'none' && !bonusCondValue) {
+                alert('Please enter Condition Value');
+                return;
+            }
+
+            payload.burnableBonus = {
+                amount: Number(bonusAmount),
+                expiresInHours: Number(bonusExpires),
+                conditionGenerations: bonusCondType === 'generations' ? Number(bonusCondValue) : null,
+                conditionTopUpAmount: bonusCondType === 'topup' ? Number(bonusCondValue) : null,
+            };
+        }
+
         try {
             setIsSending(true);
             const res = await fetch(`/admin/api/users/${userId}/send-message`, {
@@ -106,9 +132,8 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
             const data = await res.json();
             if (data.success) {
                 setMessage('');
+                setSendBonus(false); // Reset bonus toggle
                 fetchHistory();
-                // Reset form?
-                // setShowPackageForm(false); 
             } else {
                 alert('Failed: ' + (data.error || 'Unknown error'));
             }
@@ -137,10 +162,12 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
                     <textarea
                         className="w-full p-2 border rounded-md"
                         rows={3}
-                        placeholder="Type your message here (Markdown supported by Bot)..."
+                        placeholder={sendBonus ? "Leave empty to use default bonus notification..." : "Type your message here (Markdown supported by Bot)..."}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                     />
+
+                    {/* Special Offer Toggle */}
                     <div className="mt-4 border-t pt-4">
                         <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 cursor-pointer">
                             <input
@@ -193,7 +220,7 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
                                 ) : (
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="col-span-2">
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Package Name</label>
+                                            <label className="block text-xs font-medium text-gray-00 mb-1">Package Name</label>
                                             <input
                                                 type="text"
                                                 placeholder="e.g. Special Discount"
@@ -227,10 +254,25 @@ export default function SendMessageModal({ userId, isOpen, onClose, username }: 
                             </div>
                         )}
                     </div>
+
+                    {/* Burnable Bonus Form */}
+                    <BurnableBonusForm
+                        enabled={sendBonus}
+                        setEnabled={setSendBonus}
+                        amount={bonusAmount}
+                        setAmount={setBonusAmount}
+                        expiresIn={bonusExpires}
+                        setExpiresIn={setBonusExpires}
+                        conditionType={bonusCondType}
+                        setConditionType={setBonusCondType}
+                        conditionValue={bonusCondValue}
+                        setConditionValue={setBonusCondValue}
+                    />
+
                     <div className="mt-4 text-right">
                         <button
                             onClick={handleSend}
-                            disabled={isSending || !message.trim()}
+                            disabled={isSending || (!message.trim() && !sendBonus)}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
                             {isSending ? 'Sending...' : 'Send Message'}

@@ -8,6 +8,7 @@ const navigation = [
   { name: 'Credit Packages', href: '/', icon: '💎' },
   { name: 'Users', href: '/users', icon: '👥' },
   { name: 'Transactions', href: '/transactions', icon: '💳' },
+  { name: 'Reserved', href: '/reserved-credits', icon: '🔒' },
   { name: 'Generations', href: '/generations', icon: '🎨' },
   { name: 'Analytics', href: '/analytics', icon: '📊' },
   { name: 'Tariffs', href: '/tariffs', icon: '🏷️' },
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Referrals', href: '/referrals', icon: '🔗' },
   { name: 'Retention', href: '/retention', icon: '🎣' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
+
 ];
 
 export default function Sidebar() {

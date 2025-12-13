@@ -39,6 +39,7 @@ export default function UserSettingsPage() {
     isSubscriptionRequired: true,
     selectedModelId: 'gemini-2.5-flash-image',
     personalMargin: 0,
+    enhancementPrompt: '',
   });
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function UserSettingsPage() {
           isSubscriptionRequired: data.isSubscriptionRequired ?? true,
           selectedModelId: data.selectedModelId, // Changed from geminiModelId
           personalMargin: data.user.personalMargin || 0,
+          enhancementPrompt: data.enhancementPrompt || '',
         });
       }
     } catch (error) {
@@ -274,16 +276,37 @@ export default function UserSettingsPage() {
             {/* Prompt Enhancement */}
             <div>
               <h2 className="text-xl font-semibold mb-4">Prompt Enhancement</h2>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.autoEnhance}
-                    onChange={(e) => setFormData({ ...formData, autoEnhance: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Auto Enhance Prompts</span>
-                </label>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.autoEnhance}
+                      onChange={(e) => setFormData({ ...formData, autoEnhance: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm font-medium">Auto Enhance Prompts</span>
+                  </label>
+
+                  {formData.autoEnhance && (
+                    <div className="ml-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Enhancement System Prompt
+                      </label>
+                      <textarea
+                        value={formData.enhancementPrompt}
+                        onChange={(e) => setFormData({ ...formData, enhancementPrompt: e.target.value })}
+                        rows={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                        placeholder="Enter the system prompt used for enhancing user prompts..."
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        This instruction tells the AI how to rewrite and improve the user's prompt.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <label className="flex items-center">
                   <input
                     type="checkbox"
@@ -291,7 +314,7 @@ export default function UserSettingsPage() {
                     onChange={(e) => setFormData({ ...formData, useNegativePrompt: e.target.checked })}
                     className="mr-2"
                   />
-                  <span className="text-sm">Use Negative Prompts</span>
+                  <span className="text-sm font-medium">Use Negative Prompts</span>
                 </label>
               </div>
             </div>
