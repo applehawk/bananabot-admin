@@ -32,7 +32,7 @@ export default function FSMEditorPage() {
 
     const fetchGraph = async () => {
         try {
-            const res = await fetch(`/api/fsm/versions/${id}`);
+            const res = await fetch(`/admin/api/fsm/versions/${id}`);
             if (res.ok) {
                 const data = await res.json();
                 setVersion(data);
@@ -93,7 +93,7 @@ export default function FSMEditorPage() {
         }));
 
         try {
-            const res = await fetch('/api/fsm/layout', {
+            const res = await fetch('/admin/api/fsm/layout', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nodes: layoutData })
@@ -124,7 +124,7 @@ export default function FSMEditorPage() {
     const handleSaveState = async (data: any) => {
         try {
             const isEdit = !!editingState;
-            const url = isEdit ? `/api/fsm/states/${editingState.id}` : '/api/fsm/states';
+            const url = isEdit ? `/admin/api/fsm/states/${editingState.id}` : '/admin/api/fsm/states';
             const method = isEdit ? 'PUT' : 'POST';
 
             const payload = { ...data, versionId: parseInt(id as string) };
@@ -161,7 +161,7 @@ export default function FSMEditorPage() {
     const handleSaveTransition = async (data: any) => {
         try {
             const isEdit = !!editingTransition;
-            const url = isEdit ? `/api/fsm/transitions/${editingTransition.id}` : '/api/fsm/transitions';
+            const url = isEdit ? `/admin/api/fsm/transitions/${editingTransition.id}` : '/admin/api/fsm/transitions';
             const method = isEdit ? 'PUT' : 'POST';
 
             const payload = {

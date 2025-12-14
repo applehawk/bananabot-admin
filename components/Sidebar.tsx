@@ -18,7 +18,10 @@ const navigation = [
   { name: 'Admin Users', href: '/admin-users', icon: '🔐' },
   { name: 'Referrals', href: '/referrals', icon: '🔗' },
   { name: 'Retention', href: '/retention', icon: '🎣' },
+  { name: 'FSM', href: '/fsm', icon: '🤖' },
+  { name: 'FSM Live', href: '/fsm/immersion', icon: '⚡' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
+  { name: 'Logs', href: '/logs', icon: '📜' },
 
 ];
 
