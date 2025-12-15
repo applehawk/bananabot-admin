@@ -1,6 +1,13 @@
-
+import { createHmac } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { FSMEvent, FSMActionType, UserOverlay } from '@prisma/client';
+
+// Helper to sign params matching the NestJS implementation
+function signParams(params: Record<string, string | number>, secret: string): string {
+    const sortedKeys = Object.keys(params).sort();
+    const dataString = sortedKeys.map(key => `${key}=${params[key]}`).join('&');
+    return createHmac('sha256', secret).update(dataString).digest('hex');
+}
 
 const FSMConditionOperator = {
     EQUALS: 'EQUALS',
@@ -11,6 +18,9 @@ const FSMConditionOperator = {
     LESS_OR_EQUAL: 'LESS_OR_EQUAL',
     CONTAINS: 'CONTAINS'
 };
+// ... (rest of imports/types)
+
+// ...
 
 // We need to define types if they are not exported from Prisma or shared lib
 // Ideally we should import from a shared types package, but for now we define local interfaces matching schema.
@@ -268,7 +278,197 @@ export const FSMServiceHelper = {
     // Lacking that, we will implement state transition only and log a warning for actions.
 
     async processUserStrict(userId: string) {
-        // Implement simplified version or just skip if we can't do actions.
-        console.log('Manual process not fully supported in Admin standalone mode for actions.');
+        console.log(`Processing user strict (state only) for ${userId}`);
+        // We can reuse immerseUser logic but restrict depth to 1 and force evaluation?
+        // Actually, without actions, strict processing is just checking transitions.
+        await this.immerseUser(userId, 1); // Re-evaluate state
+    },
+
+    // --- Manual Action Dispatch ---
+    // This replicates Bot Service logic but runs in Next.js API context.
+
+    // --- Helper for Composite Logic (similar to route.ts) ---
+    async sendCompositeMessage(user: any, config: any) {
+        const { message, customPackage, packageId, burnableBonus } = config;
+
+        let pkgToUse = null;
+        if (customPackage) {
+            const { name, price, credits } = customPackage;
+            pkgToUse = await prisma.creditPackage.create({
+                data: {
+                    name,
+                    price: Number(price),
+                    credits: Number(credits),
+                    active: false,
+                    currency: 'RUB',
+                    popular: false,
+                    discount: 0,
+                    priceYooMoney: Number(price),
+                    priceCrypto: Number(price),
+                    priceStars: Math.ceil(Number(price) * 1.5),
+                    description: 'Personal Offer'
+                }
+            });
+        } else if (packageId) {
+            pkgToUse = await prisma.creditPackage.findUnique({ where: { id: packageId } });
+        }
+
+        // Handle Burnable Bonus
+        let burnableBonusId = null;
+        if (burnableBonus) {
+            const { amount, expiresInHours, conditionGenerations, conditionTopUpAmount } = burnableBonus;
+            const amountNum = Number(amount);
+            const hoursNum = Number(expiresInHours);
+
+            if (amountNum > 0) {
+                const bonusDef = await prisma.burnableBonus.create({
+                    data: {
+                        amount: amountNum,
+                        expiresInHours: hoursNum,
+                        conditionGenerations: conditionGenerations ? Number(conditionGenerations) : null,
+                        conditionTopUpAmount: conditionTopUpAmount ? Number(conditionTopUpAmount) : null
+                    }
+                });
+                burnableBonusId = bonusDef.id;
+
+                const deadline = new Date(Date.now() + (hoursNum || 24) * 60 * 60 * 1000);
+                await prisma.userBurnableBonus.create({
+                    data: {
+                        userId: user.id,
+                        amount: amountNum,
+                        deadline,
+                        generationsRequired: bonusDef.conditionGenerations,
+                        topUpAmountRequired: bonusDef.conditionTopUpAmount,
+                        status: 'ACTIVE'
+                    }
+                });
+
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { credits: { increment: amountNum } }
+                });
+
+                await prisma.transaction.create({
+                    data: {
+                        userId: user.id,
+                        type: 'BONUS',
+                        creditsAdded: amountNum,
+                        status: 'COMPLETED',
+                        description: 'Admin Burnable Bonus',
+                        completedAt: new Date()
+                    }
+                });
+            }
+        }
+
+        // Construct Message
+        let finalMessageText = message;
+        // If bonus exist but no message, generate default bonus text
+        if (!finalMessageText && burnableBonusId) {
+            const { amount, expiresInHours, conditionGenerations, conditionTopUpAmount } = burnableBonus;
+            let conditionText = 'выполнить условие';
+            if (conditionGenerations) conditionText = `сделать <b>${conditionGenerations} генераций</b>`;
+            else if (conditionTopUpAmount) conditionText = `пополнить баланс на <b>${conditionTopUpAmount}₽</b>`;
+
+            finalMessageText = `🔥 <b>Вам начислен сгораемый бонус!</b>\n\n` +
+                `Сумма: <b>+${amount} монет</b>\n\n` +
+                `Чтобы этот бонус остался у вас навсегда, нужно ${conditionText} в течение <b>${expiresInHours} часов</b>.\n\n` +
+                `Если условие не выполнить, бонус сгорит. Успевайте! ⏳`;
+        }
+        if (!finalMessageText) finalMessageText = "Message from Admin";
+
+        // Construct Telegram Options (Buttons)
+        let telegramOptions: any = { parse_mode: 'HTML' };
+
+        if (pkgToUse) {
+            const secret = process.env.YOOMONEY_SECRET || process.env.NEXT_PUBLIC_YOOMONEY_SECRET || 'default_secret';
+            const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_APP_URL || 'https://t.me/your_bot_name';
+            const tariffId = pkgToUse.id;
+            const timestamp = Math.floor(Date.now() / 1000);
+            const tid = Number(user.telegramId);
+
+            const paramsToSign = { userId: tid, chatId: tid, tariffId, timestamp };
+            const sign = signParams(paramsToSign, secret);
+            const paymentUrl = `${domain}/payment/init?userId=${tid}&chatId=${tid}&tariffId=${tariffId}&timestamp=${timestamp}&sign=${sign}`;
+
+            telegramOptions.reply_markup = {
+                inline_keyboard: [[
+                    { text: `Buy ${pkgToUse.name} - ${pkgToUse.price}₽`, url: paymentUrl }
+                ]]
+            };
+        }
+
+        if (user.telegramId) {
+            const { sendTelegramMessage } = require('./telegram');
+            const res = await sendTelegramMessage(Number(user.telegramId), finalMessageText, telegramOptions);
+            if (!res.success) throw new Error(res.error);
+
+            // Log
+            const displayMessage = pkgToUse ? `${finalMessageText}\n[Attached Package: ${pkgToUse.name}]` : finalMessageText;
+            await prisma.adminMessage.create({
+                data: {
+                    userId: user.id,
+                    message: displayMessage,
+                    status: 'SENT',
+                    isBroadcast: false,
+                    burnableBonusId: burnableBonusId
+                }
+            });
+        }
+        return { success: true };
+    },
+
+    async dispatchManualAction(userId: string, actionType: FSMActionType, config: any) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return { success: false, error: 'User not found' };
+
+        console.log(`[Admin] Dispatching Manual Action: ${actionType} for User ${userId}`);
+
+        try {
+            switch (actionType) {
+                case 'SEND_MESSAGE':
+                    // Enhanced SEND_MESSAGE can handle everything
+                    return await this.sendCompositeMessage(user, config);
+
+                case 'GRANT_BURNABLE_BONUS':
+                    // Map legacy config to composite config
+                    return await this.sendCompositeMessage(user, {
+                        burnableBonus: {
+                            amount: config.amount,
+                            expiresInHours: config.hours,
+                            conditionGenerations: config.conditionGenerations,
+                            conditionTopUpAmount: config.conditionTopUpAmount
+                        },
+                        message: config.message // allow optional message override
+                    });
+
+                case 'TAG_USER':
+                    const newTag = config.tag;
+                    if (newTag && !user.tags.includes(newTag)) {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: { tags: { push: newTag } }
+                        });
+                    }
+                    break;
+
+                case 'SEND_SPECIAL_OFFER':
+                    // Map config to composite
+                    return await this.sendCompositeMessage(user, {
+                        customPackage: config.customPackage,
+                        packageId: config.packageId,
+                        message: config.message
+                    });
+
+                default:
+                    return { success: false, error: `Action ${actionType} not supported in Admin Manual Dispatch yet.` };
+            }
+
+            return { success: true };
+
+        } catch (e: any) {
+            console.error("Manual Dispatch Error:", e);
+            return { success: false, error: e.message };
+        }
     }
 };

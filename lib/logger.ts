@@ -7,16 +7,26 @@ const logDir = '/app/logs';
 // Only try to create if we are in an environment where we might want to (e.g. local without docker mounting properly yet)
 // But essentially we expect /app/logs to exist via volume.
 // If running locally without docker, we might want ./logs
-const localLogDir = path.join(process.cwd(), '../logs');
-const targetLogDir = process.env.NODE_ENV === 'production' ? logDir : localLogDir;
+const localLogDir = path.join(process.cwd(), 'logs');
 
-// We don't necessarily want to create the directory if it's a mounted volume, but good practice to check if we can.
-if (!fs.existsSync(targetLogDir)) {
-    try {
+let targetLogDir = process.env.NODE_ENV === 'production' ? logDir : localLogDir;
+
+// Robust directory selection
+try {
+    if (!fs.existsSync(targetLogDir)) {
         fs.mkdirSync(targetLogDir, { recursive: true });
-    } catch (e) {
-        // Ignore error if we can't create it (might be permission issue or already exists)
-        console.error('Could not create log directory', e);
+    }
+    // Check write access
+    fs.accessSync(targetLogDir, fs.constants.W_OK);
+} catch (e) {
+    console.warn(`Cannot write to ${targetLogDir}, falling back to ${localLogDir}`);
+    targetLogDir = localLogDir;
+    try {
+        if (!fs.existsSync(targetLogDir)) {
+            fs.mkdirSync(targetLogDir, { recursive: true });
+        }
+    } catch (e2) {
+        console.error('Could not create log directory', e2);
     }
 }
 
