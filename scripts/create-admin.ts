@@ -4,8 +4,13 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-    const username = 'admin';
-    const password = 'admin123';
+    const args = process.argv.slice(2);
+    if (args.length < 2) {
+        console.error('Usage: ts-node create-admin.ts <username> <password>');
+        process.exit(1);
+    }
+
+    const [username, password] = args;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     console.log(`Creating/Updating admin user: ${username}`);

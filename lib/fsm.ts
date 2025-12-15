@@ -226,15 +226,32 @@ export const FSMServiceHelper = {
             let transitionFound = null;
             for (const transition of transitions) {
                 // Event check
-                let isEventImplied = true;
-                // Note: Matching "Event" strings from FSMEvent enum (which are strings in JS runtime)
-                if (transition.triggerEvent === 'PAYMENT_COMPLETED' as any) {
+                // SAFE DEFAULT: If there are conditions, we assume the event *might* have happened and let conditions decide.
+                // If there are NO conditions, we assume the event DID NOT happen unless we explicitly verify it below.
+                let isEventImplied = transition.conditions.length > 0;
+
+                // Time triggers cannot be evaluated in immersion (instantaneous), so we skip them.
+                if (transition.triggerType === 'TIME') {
+                    isEventImplied = false;
+                }
+
+                // Explicit Event Handlers
+                if (transition.triggerEvent === 'BOT_START' as any) {
+                    isEventImplied = true; // User exists, so they started the bot.
+                } else if (transition.triggerEvent === 'PAYMENT_COMPLETED' as any) {
                     isEventImplied = context.totalPayments > 0;
-                } else if (transition.triggerEvent === 'FIRST_GENERATION' as any) {
+                } else if (transition.triggerEvent === 'FIRST_GENERATION' as any || transition.triggerEvent === 'GENERATION_COMPLETED' as any) {
+                    // Start/Generation events implied if user has generations
                     isEventImplied = context.totalGenerations > 0;
+                } else if (transition.triggerEvent === 'USER_BLOCKED' as any) {
+                    // console.log(`[DEBUG] Check Blocked: UserBlocked=${user.isBlocked}, DefaultImplied=${isEventImplied}`);
+                    isEventImplied = user.isBlocked === true;
+                } else if (transition.triggerEvent === 'USER_UNBLOCKED' as any) {
+                    isEventImplied = user.isBlocked === false && currentState.name === 'BLOCKED';
                 }
 
                 if (!isEventImplied) continue;
+
                 if (await this.evaluateConditions(user, transition.conditions)) {
                     transitionFound = transition;
                     break;

@@ -23,6 +23,9 @@ export async function GET(request: Request) {
     // Broadcast Filter
     const excludeBroadcastsHours = searchParams.get('excludeBroadcastsHours') ? Number(searchParams.get('excludeBroadcastsHours')) : null;
 
+    // Blocked Filter
+    const isBlocked = searchParams.get('isBlocked') === 'true';
+
     // Calculate skip
     const skip = (page - 1) * limit;
 
@@ -87,6 +90,11 @@ export async function GET(request: Request) {
           }
         }
       };
+    }
+
+    // 6. Blocked Status
+    if (isBlocked) {
+      where.isBlocked = true;
     }
 
     // Transaction for count and data

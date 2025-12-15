@@ -65,6 +65,7 @@ export default function UsersPage() {
   const [expiringCredits, setExpiringCredits] = useState<string>('');
   const [expiringDays, setExpiringDays] = useState<string>('');
   const [excludeHours, setExcludeHours] = useState<string>('');
+  const [showBlocked, setShowBlocked] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Pagination State
@@ -146,6 +147,7 @@ export default function UsersPage() {
         params.append('daysSinceLastTopUp', expiringDays);
       }
       if (excludeHours) params.append('excludeBroadcastsHours', excludeHours);
+      if (showBlocked) params.append('isBlocked', 'true');
 
       const res = await fetch(`/admin/api/users?${params.toString()}`);
       const data = await res.json();
@@ -178,7 +180,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, searchTerm, viewMode, minCredits, maxGenerations, expiringCredits, expiringDays, excludeHours]);
+  }, [page, limit, searchTerm, viewMode, minCredits, maxGenerations, expiringCredits, expiringDays, excludeHours, showBlocked]);
 
   // Reset page when search or view mode changes
   useEffect(() => {
@@ -192,7 +194,7 @@ export default function UsersPage() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [minCredits, maxGenerations, expiringCredits, expiringDays, excludeHours]);
+  }, [minCredits, maxGenerations, expiringCredits, expiringDays, excludeHours, showBlocked]);
 
   // Infinite Scroll Observer
   useEffect(() => {
@@ -607,6 +609,22 @@ export default function UsersPage() {
                 />
                 <p className="text-xs text-gray-500 mt-1">Not contacted in X hrs.</p>
               </div>
+
+              {/* Blocked Users Toggle */}
+              <div className="flex flex-col justify-end pb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox"
+                      checked={showBlocked}
+                      onChange={(e) => setShowBlocked(e.target.checked)}
+                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer peer checked:right-0 right-4"
+                      style={{ right: showBlocked ? '0' : 'auto', left: showBlocked ? 'auto' : '0' }}
+                    />
+                    <div className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${showBlocked ? 'bg-red-500' : 'bg-gray-300'}`}></div>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Blocked Users Only</span>
+                </label>
+              </div>
             </div>
           )}
         </div>
@@ -655,7 +673,14 @@ export default function UsersPage() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-blue-600 hover:text-blue-800">{user.firstName || user.username || 'Unknown'}</div>
+                        <div className="font-medium text-blue-600 hover:text-blue-800 flex items-center gap-2">
+                          {user.firstName || user.username || 'Unknown'}
+                          {(user as any).isBlocked && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                              Blocked
+                            </span>
+                          )}
+                        </div>
                         {user.username && <div className="text-sm text-gray-500">@{user.username}</div>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.telegramId}</td>
