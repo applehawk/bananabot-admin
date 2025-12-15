@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1 AS builder
+FROM oven/bun:latest AS builder
 
 # Set working directory
 WORKDIR /app
@@ -9,9 +9,10 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
-# Allow bun to migrate pnpm-lock.yaml to bun.lockb to resolve specific versions
-RUN bun install --no-frozen-lockfile
-RUN bun install -D tsc-alias
+# Use --no-save to prevent version upgrades and maintain package.json versions
+# Add retry logic with fallback for Prisma package resolution
+RUN bun install --no-frozen-lockfile --no-save || bun install --no-frozen-lockfile --backend=hardlink --no-save
+RUN bun install -D tsc-alias --no-save || bun add -D tsc-alias --no-save
 
 # Copy prisma submodule (schema and migrations)
 COPY prisma ./prisma
@@ -32,7 +33,7 @@ RUN bun run build
 RUN bunx tsc-alias -p tsconfig.json --outDir ./dist
 
 # Production stage
-FROM oven/bun:1 AS runner
+FROM oven/bun:latest AS runner
 
 WORKDIR /app
 

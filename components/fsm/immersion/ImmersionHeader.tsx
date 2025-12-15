@@ -5,14 +5,12 @@ import { Loader2, RefreshCw } from 'lucide-react';
 interface ImmersionHeaderProps {
     isFsmEnabled: boolean;
     onToggleFsm: (checked: boolean) => void;
-    immersionLoading: boolean;
     onRunImmersion: () => void;
 }
 
 export function ImmersionHeader({
     isFsmEnabled,
     onToggleFsm,
-    immersionLoading,
     onRunImmersion
 }: ImmersionHeaderProps) {
     return (
@@ -30,8 +28,8 @@ export function ImmersionHeader({
                             <label htmlFor="fsm-mode" className="text-sm font-medium text-gray-700">Global FSM Enable</label>
                         </div>
 
-                        <Button onClick={onRunImmersion} disabled={immersionLoading} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-                            {immersionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        <Button onClick={onRunImmersion} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+                            <RefreshCw className="mr-2 h-4 w-4" />
                             Run Immersion
                         </Button>
                     </div>

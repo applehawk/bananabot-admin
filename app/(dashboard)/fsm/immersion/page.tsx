@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { StateStat } from '@/components/fsm/immersion/types';
 import { ImmersionHeader } from '@/components/fsm/immersion/ImmersionHeader';
+import { ImmersionRunModal } from '@/components/fsm/immersion/ImmersionRunModal';
 import { StateCard } from '@/components/fsm/immersion/StateCard';
 
 export default function FSMImmersionPage() {
@@ -12,7 +13,9 @@ export default function FSMImmersionPage() {
     const [totalUsers, setTotalUsers] = useState(0);
     const [versionId, setVersionId] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
-    const [immersionLoading, setImmersionLoading] = useState(false);
+
+    // Immersion Modal State
+    const [showImmersionModal, setShowImmersionModal] = useState(false);
 
     // Global Toggle
     const [isFsmEnabled, setIsFsmEnabled] = useState(false);
@@ -57,25 +60,12 @@ export default function FSMImmersionPage() {
         } catch (e) { console.error("Failed to load packages", e); }
     };
 
-    const handleImmersion = async () => {
-        if (!confirm("This will replay history for users and reset their FSM state. Continue?")) return;
-        setImmersionLoading(true);
-        try {
-            const res = await fetch('/admin/api/fsm/immersion', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ versionId })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(`Immersion started/completed. Processed: ${data.processed}`);
-                fetchStats();
-            }
-        } catch (e) {
-            alert('Error during immersion');
-        } finally {
-            setImmersionLoading(false);
-        }
+    const handleImmersion = () => {
+        setShowImmersionModal(true);
+    };
+
+    const handleImmersionComplete = () => {
+        fetchStats();
     };
 
     const handleToggleFsm = async (enabled: boolean) => {
@@ -97,8 +87,13 @@ export default function FSMImmersionPage() {
             <ImmersionHeader
                 isFsmEnabled={isFsmEnabled}
                 onToggleFsm={handleToggleFsm}
-                immersionLoading={immersionLoading}
                 onRunImmersion={handleImmersion}
+            />
+
+            <ImmersionRunModal
+                isOpen={showImmersionModal}
+                onClose={() => setShowImmersionModal(false)}
+                onComplete={handleImmersionComplete}
             />
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
