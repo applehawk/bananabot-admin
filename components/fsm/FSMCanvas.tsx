@@ -23,49 +23,53 @@ interface FSMCanvasProps {
     onConnect?: (params: Connection | Edge) => void;
 }
 
-const FSMCanvas: React.FC<FSMCanvasProps> = ({
-    initialNodes,
-    initialEdges,
+import StateNode from './StateNode';
+
+const nodeTypes = { state: StateNode };
+
+const FSMCanvas: React.FC<FSMCanvasProps & {
+    nodes: Node[];
+    edges: Edge[];
+    onNodesChange: any;
+    onEdgesChange: any;
+}> = ({
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
     onNodeClick,
     onEdgeClick,
     onConnect
 }) => {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+        const handleConnect = useCallback(
+            (params: Connection | Edge) => {
+                onConnect && onConnect(params);
+            },
+            [onConnect]
+        );
 
-    useEffect(() => {
-        setNodes(initialNodes);
-        setEdges(initialEdges);
-    }, [initialNodes, initialEdges, setNodes, setEdges]);
+        // Custom Styles for graph
+        const flowStyles = { background: '#f8f9fa' };
 
-    const handleConnect = useCallback(
-        (params: Connection | Edge) => {
-            onConnect && onConnect(params);
-        },
-        [onConnect]
-    );
-
-    // Custom Styles for graph
-    const flowStyles = { background: '#f8f9fa' };
-
-    return (
-        <div style={{ height: '800px', border: '1px solid #ddd', borderRadius: '8px' }}>
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={handleConnect}
-                onNodeClick={onNodeClick}
-                onEdgeClick={onEdgeClick}
-                style={flowStyles}
-                fitView
-            >
-                <Background gap={16} />
-                <Controls />
-            </ReactFlow>
-        </div>
-    );
-};
+        return (
+            <div style={{ height: '800px', border: '1px solid #ddd', borderRadius: '8px' }}>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={handleConnect}
+                    onNodeClick={onNodeClick}
+                    onEdgeClick={onEdgeClick}
+                    style={flowStyles}
+                    fitView
+                >
+                    <Background gap={16} />
+                    <Controls />
+                </ReactFlow>
+            </div>
+        );
+    };
 
 export default FSMCanvas;

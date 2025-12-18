@@ -1,77 +1,94 @@
-# Build stage
-FROM oven/bun:latest AS builder
-
-# Set working directory
+# ==========================================
+# STAGE 1: Base Image
+# Общий базовый образ для всех этапов админки.
+# ==========================================
+FROM oven/bun:latest AS base
 WORKDIR /app
 
-# Copy package files
-# We copy pnpm-lock.yaml if it exists just in case, but we might ignore it
-COPY package.json pnpm-lock.yaml* ./
+# ==========================================
+# STAGE 2: Dependencies
+# Установка ВСЕХ зависимостей (включая dev) для сборки.
+# ==========================================
+FROM base AS deps
+# Копируем только файлы манифеста для кэширования.
+COPY package.json bun.lock* ./
 
-# Install dependencies
-# Use --no-save to prevent version upgrades and maintain package.json versions
-# Add retry logic with fallback for Prisma package resolution
-RUN bun install --no-frozen-lockfile --no-save || bun install --no-frozen-lockfile --backend=hardlink --no-save
-RUN bun install -D tsc-alias --no-save || bun add -D tsc-alias --no-save
+# Использование '--frozen-lockfile' гарантирует воспроизводимость сборок.
+# '--frozne-lockfile' если оставить, я получаю 
+# 0.232 bun install v1.3.5 (1e86cebd)                                                    
+# 9.141 error: Integrity check failed for tarball: date-fns                              
+# 16.71 error: IntegrityCheckFailed extracting tarball from date-fns                     
+# ------                                                                                 
+# target bot: failed to solve: process "/bin/sh -c bun install --frozen-lockfile" did not complete successfully: exit code: 1
+RUN bun install
 
-# Copy prisma submodule (schema and migrations)
-COPY prisma ./prisma
+# ==========================================
+# STAGE 3: Builder
+# Сборка Next.js приложения.
+# ==========================================
+FROM base AS builder
 
-# Generate Prisma Client
-RUN bunx prisma generate --schema=./prisma/schema.prisma
-
-# Copy source code
+# Копируем зависимости из предыдущего этапа.
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build arguments for Next.js public env vars
+# Аргументы сборки для публичных переменных окружения Next.js.
 ARG NEXT_PUBLIC_BOT_USERNAME
 ENV NEXT_PUBLIC_BOT_USERNAME=$NEXT_PUBLIC_BOT_USERNAME
 
-# Build Next.js application
+# Генерация Prisma Client.
+RUN bunx prisma generate --schema=./prisma/schema.prisma
+
+# Сборка Next.js.
+# В next.config.ts должно быть включено 'output: "standalone"'.
+# Это создает минимальный набор файлов для работы в продакшене.
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
-RUN bunx tsc-alias -p tsconfig.json --outDir ./dist
 
-# Production stage
-FROM oven/bun:latest AS runner
+# ==========================================
+# STAGE 4: Runner
+# Финальный легковесный образ.
+# ==========================================
+FROM base AS runner
 
 WORKDIR /app
 
-# Set NODE_ENV to production
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# Create a non-root user
-# Debian syntax
-RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -m -s /bin/bash nextjs
-
-# Copy necessary files
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/scripts ./scripts
-
-# Create logs directory and ensure permissions
-RUN mkdir -p /app/logs && chown -R nextjs:nodejs /app/logs
-
-# Switch to non-root user
-USER nextjs
-
-# Expose the port Next.js runs on
-EXPOSE 3001
-
-# Set the port and hostname environment variables
 ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
 
-# Health check
-# Use bun for healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+# [БЕЗОПАСНОСТЬ]: Создание non-root пользователя.
+RUN groupadd -g 1001 nodejs && \
+  useradd -u 1001 -g nodejs -m -s /bin/bash nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Копируем node_modules для поддержки скриптов (например, create-admin.ts)
+# Standalone сборка включает только минимальные зависимости для runtime,
+# но скриптам нужны дополнительные пакеты (@prisma/adapter-pg, bcryptjs и т.д.)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Копируем файлы Prisma и конфигурации.
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/scripts/docker-entrypoint.sh /usr/local/bin/
+
+# Подготовка логов и прав доступа.
+RUN mkdir -p /app/logs && \
+  chmod +x /usr/local/bin/docker-entrypoint.sh && \
+  chown -R nextjs:nodejs /app
+
+USER nextjs
+
+# Health check для API админки.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD bun -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start the application with Prisma migrations
-# Use bunx/bun for execution
-CMD ["sh", "-c", "bunx prisma migrate deploy --schema=./prisma/schema.prisma && bun run start"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# В режиме standalone запуск идет через server.js.
+CMD ["bun", "run", "server.js"]

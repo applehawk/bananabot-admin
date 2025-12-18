@@ -167,7 +167,22 @@ export function ActionExecutionModal({
                                     )}
                                 </div>
 
-                                {/* Burnable Bonus Toggle */}
+                                <details className="pt-2 border-t mt-4 group">
+                                    <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-800 select-none flex items-center gap-1 mb-2">
+                                        <span>⚡ Advanced: Run Conditions (JSON)</span>
+                                    </summary>
+                                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                        <p className="text-xs text-muted-foreground">
+                                            Execute action ONLY if conditions match. Example: <code className="bg-gray-100 px-1 rounded">[{`{"field": "credits", "operator": "LT", "value": "10"}`}]</code>
+                                        </p>
+                                        <textarea
+                                            className="w-full border rounded p-2 h-20 font-mono text-xs bg-gray-50"
+                                            placeholder='[{"field": "credits", "operator": "LT", "value": "10"}]'
+                                            value={actionConfig.conditions ? (typeof actionConfig.conditions === 'string' ? actionConfig.conditions : JSON.stringify(actionConfig.conditions, null, 2)) : ''}
+                                            onChange={e => setActionConfig({ ...actionConfig, conditions: e.target.value })}
+                                        />
+                                    </div>
+                                </details>
                                 <div className="border rounded-md p-3 bg-gray-50 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <label className="text-sm font-semibold flex items-center gap-2">

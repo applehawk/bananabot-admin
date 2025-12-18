@@ -13,5 +13,5 @@ export interface UserDetail {
     credits: number;
     lastActiveAt: string;
     enteredStateAt: string;
-    activeOverlays: string[];
+    activeOverlays: any[];
 }

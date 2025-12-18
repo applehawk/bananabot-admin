@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Copy, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import UserDistributionChart from '@/components/fsm/UserDistributionChart';
 
 interface FSMVersion {
     id: number;
@@ -97,6 +98,10 @@ export default function FSMPage() {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="mb-8 bg-white p-6 rounded-lg shadow border border-gray-200">
+                    <UserDistributionChart />
+                </div>
+
                 <div className="grid gap-6">
                     {versions.map((version) => (
                         <div key={version.id} className={`bg-white rounded-lg shadow overflow-hidden border ${version.isActive ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}>

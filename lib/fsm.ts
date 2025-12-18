@@ -121,27 +121,35 @@ export const FSMServiceHelper = {
     },
 
     async evaluateConditions(user: any, conditions: any[]): Promise<boolean> {
-        if (conditions.length === 0) return true;
+        if (!conditions || conditions.length === 0) return true;
         const context = await this.buildContext(user);
 
+        // Grouping Logic: AND within groups, OR between groups
         const groups: Record<number, any[]> = {};
         for (const c of conditions) {
             if (!groups[c.groupId]) groups[c.groupId] = [];
             groups[c.groupId].push(c);
         }
 
+        // Check if ANY group is fully satisfied (OR logic)
         for (const groupIdStr in groups) {
             const groupConditions = groups[groupIdStr];
             let groupResult = true;
+
+            // Check if ALL conditions in this group are satisfied (AND logic)
             for (const condition of groupConditions) {
                 if (!this.checkCondition(condition, context)) {
                     groupResult = false;
                     break;
                 }
             }
-            if (groupResult) return true;
+
+            if (groupResult === true) {
+                return true; // Short-circuit OR
+            }
         }
-        return false;
+
+        return false; // No group satisfied
     },
 
     checkCondition(condition: any, context: FSMContext): boolean {
@@ -152,6 +160,7 @@ export const FSMServiceHelper = {
 
     resolveFieldValue(field: string, context: FSMContext): any {
         switch (field) {
+            // Direct
             case 'credits_balance': return context.credits;
             case 'total_generations': return context.totalGenerations;
             case 'total_payments': return context.totalPayments;
@@ -159,13 +168,23 @@ export const FSMServiceHelper = {
             case 'user_tags': return context.userTags;
             case 'preferred_model': return context.preferredModel;
             case 'last_payment_failed': return context.lastPaymentFailed;
+
+            // Computed Times
             case 'days_since_created': return context.daysSinceCreated;
             case 'hours_since_last_pay': return context.hoursSinceLastPay;
             case 'hours_since_last_gen': return context.hoursSinceLastGen;
             case 'hours_since_last_activity': return context.hoursSinceLastActivity;
+
+            // Complex Logic
             case 'is_low_balance': return context.isLowBalance;
             case 'is_freeloader': return (context.totalGenerations > 0 && context.totalPayments === 0 && context.isLowBalance);
             case 'is_dead': return (context.totalGenerations === 0);
+
+            // Overlay Specific (New)
+            case 'active_overlays': return context.activeOverlays.map(o => o.type);
+            case 'has_tripwire': return context.activeOverlays.some(o => o.type === 'TRIPWIRE');
+            case 'has_bonus': return context.activeOverlays.some(o => o.type === 'BONUS');
+
             default: return null;
         }
     },
@@ -180,17 +199,32 @@ export const FSMServiceHelper = {
         const numTarget = Number(targetVal);
         const isNumeric = !isNaN(numCurrent) && !isNaN(numTarget) && typeof current !== 'boolean';
 
-        switch (operator) {
+        // Normalize operator to upper case just in case
+        const op = operator.toUpperCase();
+
+        switch (op) {
             case 'EQUALS': return current == targetVal;
             case 'NOT_EQUALS': return current != targetVal;
-            case 'GREATER_THAN': return isNumeric ? numCurrent > numTarget : false;
-            case 'LESS_THAN': return isNumeric ? numCurrent < numTarget : false;
-            case 'GREATER_OR_EQUAL': return isNumeric ? numCurrent >= numTarget : false;
-            case 'LESS_OR_EQUAL': return isNumeric ? numCurrent <= numTarget : false;
+            case 'GREATER_THAN':
+            case 'GT': return isNumeric ? numCurrent > numTarget : false;
+            case 'LESS_THAN':
+            case 'LT': return isNumeric ? numCurrent < numTarget : false;
+            case 'GREATER_OR_EQUAL':
+            case 'GTE': return isNumeric ? numCurrent >= numTarget : false;
+            case 'LESS_OR_EQUAL':
+            case 'LTE': return isNumeric ? numCurrent <= numTarget : false;
             case 'CONTAINS':
                 if (Array.isArray(current)) return current.includes(targetVal);
                 if (typeof current === 'string') return current.includes(String(targetVal));
                 return false;
+            case 'IN':
+                if (typeof targetVal === 'string') return targetVal.split(',').map(s => s.trim()).includes(String(current));
+                return false;
+            case 'NOT_IN':
+                if (typeof targetVal === 'string') return !targetVal.split(',').map(s => s.trim()).includes(String(current));
+                return true;
+            case 'EXISTS': return current !== null && current !== undefined;
+            case 'NOT_EXISTS': return current === null || current === undefined;
             default: return false;
         }
     },
@@ -201,7 +235,10 @@ export const FSMServiceHelper = {
         console.log(`Starting Immersion for user ${userId}`);
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { fsmState: { include: { state: true } } },
+            include: {
+                fsmState: { include: { state: true } },
+                overlays: { where: { state: { in: ['ACTIVE', 'ELIGIBLE'] } } }
+            },
         });
         if (!user) return;
 
@@ -244,10 +281,13 @@ export const FSMServiceHelper = {
                     // Start/Generation events implied if user has generations
                     isEventImplied = context.totalGenerations > 0;
                 } else if (transition.triggerEvent === 'USER_BLOCKED' as any) {
-                    // console.log(`[DEBUG] Check Blocked: UserBlocked=${user.isBlocked}, DefaultImplied=${isEventImplied}`);
                     isEventImplied = user.isBlocked === true;
                 } else if (transition.triggerEvent === 'USER_UNBLOCKED' as any) {
                     isEventImplied = user.isBlocked === false && currentState.name === 'BLOCKED';
+                } else if (transition.triggerEvent === 'OVERLAY_ACTIVATED' as any) {
+                    isEventImplied = context.activeOverlays.length > 0;
+                } else if (transition.triggerEvent === 'INSUFFICIENT_CREDITS' as any) {
+                    isEventImplied = context.isLowBalance;
                 }
 
                 if (!isEventImplied) continue;
@@ -435,9 +475,23 @@ export const FSMServiceHelper = {
         return { success: true };
     },
 
-    async dispatchManualAction(userId: string, actionType: FSMActionType, config: any) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+    async dispatchManualAction(userId: string, actionType: FSMActionType, config: any, conditions?: any[]) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                overlays: { where: { state: { in: ['ACTIVE', 'ELIGIBLE'] } } }
+            }
+        });
         if (!user) return { success: false, error: 'User not found' };
+
+        // Check Conditions if provided
+        if (conditions && conditions.length > 0) {
+            const match = await this.evaluateConditions(user, conditions);
+            if (!match) {
+                console.log(`[Admin] Condition mismatch for User ${userId}. Skipping.`);
+                return { success: false, error: 'Condition mismatch', skipped: true };
+            }
+        }
 
         console.log(`[Admin] Dispatching Manual Action: ${actionType} for User ${userId}`);
 

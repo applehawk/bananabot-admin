@@ -337,6 +337,84 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
+                        {/* Retention & FSM */}
+                        <div>
+                            <h2 className="text-xl font-semibold mb-4">Retention & FSM</h2>
+                            <div className="space-y-4">
+                                <div className="flex items-center">
+                                    <input
+                                        id="retention-enabled"
+                                        type="checkbox"
+                                        checked={settings.isRetentionEnabled}
+                                        onChange={(e) => setSettings({ ...settings, isRetentionEnabled: e.target.checked })}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <label htmlFor="retention-enabled" className="ml-2 block text-sm text-gray-900">
+                                        Enable Retention System (FSM)
+                                    </label>
+                                </div>
+                                <p className="text-xs text-gray-500 ml-6">
+                                    If disabled, FSM events, transitions, and rules will not be executed.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Rule Engine Advanced Controls */}
+                        <div className="border-t pt-6">
+                            <h2 className="text-xl font-semibold mb-4">Rule Engine Controls</h2>
+                            <div className="space-y-4 bg-gray-50 p-4 rounded-lg border">
+                                <div className="flex items-center">
+                                    <input
+                                        id="rule-engine-enabled"
+                                        type="checkbox"
+                                        checked={settings.ruleEngineEnabled}
+                                        onChange={(e) => setSettings({ ...settings, ruleEngineEnabled: e.target.checked })}
+                                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                    />
+                                    <label htmlFor="rule-engine-enabled" className="ml-2 block text-sm font-medium text-gray-900">
+                                        Enable Rule Engine (Global Switch)
+                                    </label>
+                                </div>
+
+                                {settings.ruleEngineEnabled && (
+                                    <div className="ml-6 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Targeting Mode</label>
+                                            <select
+                                                value={settings.ruleEngineMode || 'ALL'}
+                                                onChange={(e) => setSettings({ ...settings, ruleEngineMode: e.target.value as any })}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                            >
+                                                <option value="ALL">All Users</option>
+                                                <option value="NEW_USERS_ONLY">New Users Only (Created After Date)</option>
+                                                <option value="OLD_USERS_ONLY">Old Users Only (Created Before Date)</option>
+                                                <option value="SELECTED_USERS_ONLY">Selected Users (Checkbox in Users Table)</option>
+                                            </select>
+                                        </div>
+
+                                        {(settings.ruleEngineMode === 'NEW_USERS_ONLY' || settings.ruleEngineMode === 'OLD_USERS_ONLY') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Reference Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={settings.ruleEngineReferenceDate ? new Date(settings.ruleEngineReferenceDate).toISOString().split('T')[0] : ''}
+                                                    onChange={(e) => setSettings({ ...settings, ruleEngineReferenceDate: new Date(e.target.value) })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">Users created {settings.ruleEngineMode === 'NEW_USERS_ONLY' ? 'after' : 'before'} this date will get rules.</p>
+                                            </div>
+                                        )}
+
+                                        {settings.ruleEngineMode === 'SELECTED_USERS_ONLY' && (
+                                            <div className="bg-blue-50 p-3 rounded text-xs text-blue-700">
+                                                Go to the <b>Users</b> page and check the "Rule Engine" box for specific users.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Submit */}
                         <div className="flex justify-end pt-4">
                             <button

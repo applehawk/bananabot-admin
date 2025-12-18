@@ -41,6 +41,7 @@ interface User {
   freeCreditsUsed: number;
   totalGenerated: number;
   createdAt: string;
+  isRuleEngineEnabled: boolean;
   _count: {
     transactions: number;
     generations: number;
@@ -292,6 +293,25 @@ export default function UsersPage() {
       user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.telegramId.includes(searchTerm)
   );
+
+  const handleToggleRuleEngine = async (userId: string, enabled: boolean) => {
+    // Optimistic update
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, isRuleEngineEnabled: enabled } : u));
+
+    try {
+      const res = await fetch(`/admin/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRuleEngineEnabled: enabled })
+      });
+      if (!res.ok) throw new Error('Failed to update user');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to update rule engine status');
+      // Revert
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, isRuleEngineEnabled: !enabled } : u));
+    }
+  };
 
   const handleSendMessage = (user: User) => {
     setSelectedUser({ id: user.id, username: user.username || user.firstName });
@@ -651,6 +671,7 @@ export default function UsersPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telegram ID</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Rules</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Free Used</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Generated</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
@@ -686,6 +707,15 @@ export default function UsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.telegramId}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-sm font-medium bg-green-100 text-green-800 rounded">{user.credits.toFixed(1)}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={user.isRuleEngineEnabled}
+                          onChange={(e) => handleToggleRuleEngine(user.id, e.target.checked)}
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+                          title="Enable/Disable Rules for this user"
+                        />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.freeCreditsUsed}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGenerated}</td>

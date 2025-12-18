@@ -1,6 +1,26 @@
-
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
+
+export async function GET() {
+    try {
+        const states = await prisma.fSMState.findMany({
+            orderBy: { name: 'asc' },
+            select: {
+                id: true,
+                name: true,
+                versionId: true,
+                version: {
+                    select: { name: true }
+                }
+            }
+        });
+        return NextResponse.json(states);
+    } catch (error) {
+        console.error('Failed to fetch FSM states:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
 
 export async function POST(req: Request) {
     try {

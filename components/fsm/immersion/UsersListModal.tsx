@@ -74,13 +74,30 @@ export function UsersListModal({
 
         setActionLoading(true);
         try {
+            // Extract and Parse Conditions
+            let conditions = undefined;
+            const configToSend = { ...actionConfig };
+            if (configToSend.conditions) {
+                try {
+                    conditions = typeof configToSend.conditions === 'string'
+                        ? JSON.parse(configToSend.conditions)
+                        : configToSend.conditions;
+                    delete configToSend.conditions;
+                } catch (e) {
+                    alert('Invalid JSON in Conditions field');
+                    setActionLoading(false);
+                    return;
+                }
+            }
+
             const res = await fetch('/admin/api/fsm/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userIds: Array.from(selectedUserIds),
                     action: actionType,
-                    config: actionConfig
+                    config: configToSend,
+                    conditions
                 })
             });
             const data = await res.json();
@@ -177,9 +194,9 @@ export function UsersListModal({
                                 <TableCell>{new Date(u.lastActiveAt).toLocaleDateString()}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-wrap gap-1">
-                                        {u.activeOverlays?.length ? u.activeOverlays.map(o => (
-                                            <Badge key={o} variant="outline" className="text-xs border-orange-200 bg-orange-50 text-orange-800">
-                                                {o}
+                                        {u.activeOverlays?.length ? u.activeOverlays.map((o: any) => (
+                                            <Badge key={typeof o === 'string' ? o : o.type} variant="outline" className="text-xs border-orange-200 bg-orange-50 text-orange-800">
+                                                {typeof o === 'string' ? o : o.type}
                                             </Badge>
                                         )) : <span className="text-muted-foreground text-xs">-</span>}
                                     </div>

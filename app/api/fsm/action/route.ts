@@ -4,10 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { FSMServiceHelper } from '@/lib/fsm';
 import { FSMActionType } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { userIds, action, config } = body;
+        const { userIds, action, config, conditions } = body;
 
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
             return NextResponse.json({ error: 'No users provided' }, { status: 400 });
@@ -23,6 +25,7 @@ export async function POST(req: Request) {
 
         let successCount = 0;
         let failCount = 0;
+        let skippedCount = 0;
         const results = [];
 
         // LIMIT: 50 users max per batch to prevent timeout
@@ -32,9 +35,10 @@ export async function POST(req: Request) {
         const usersToProcess = userIds.slice(0, BATCH_LIMIT);
 
         for (const userId of usersToProcess) {
-            const res = await FSMServiceHelper.dispatchManualAction(userId, action as FSMActionType, config || {});
+            const res = await FSMServiceHelper.dispatchManualAction(userId, action as FSMActionType, config || {}, conditions);
             results.push({ userId, ...res });
             if (res.success) successCount++;
+            else if ((res as any).skipped) skippedCount++;
             else failCount++;
         }
 
@@ -43,6 +47,7 @@ export async function POST(req: Request) {
             processed: usersToProcess.length,
             successCount,
             failCount,
+            skippedCount,
             results,
             limitReached: userIds.length > BATCH_LIMIT
         });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { handleDatabaseError } from '@/lib/db-error-handler';
@@ -7,7 +8,7 @@ import { createHmac } from 'crypto';
 // Helper to sign params matching the NestJS implementation
 function signParams(params: Record<string, string | number>, secret: string): string {
     const sortedKeys = Object.keys(params).sort();
-    const dataString = sortedKeys.map(key => `${key}=${params[key]}`).join('&');
+    const dataString = sortedKeys.map(key => `${key}=${params[key]} `).join('&');
     return createHmac('sha256', secret).update(dataString).digest('hex');
 }
 
@@ -78,7 +79,7 @@ export async function POST(
             };
 
             const sign = signParams(paramsToSign, secret);
-            const paymentUrl = `${domain}/payment/init?userId=${tid}&chatId=${tid}&tariffId=${tariffId}&timestamp=${timestamp}&sign=${sign}`;
+            const paymentUrl = `${domain} /payment/init ? userId = ${tid}& chatId=${tid}& tariffId=${tariffId}& timestamp=${timestamp}& sign=${sign} `;
 
             telegramOptions.reply_markup = {
                 inline_keyboard: [[
@@ -142,7 +143,7 @@ export async function POST(
 
             let conditionText = '';
             if (conditionGenerations) {
-                conditionText = `сделать <b>${conditionGenerations} генераций</b>`;
+                conditionText = `сделать < b > ${conditionGenerations} генераций </b>`;
             } else if (conditionTopUpAmount) {
                 conditionText = `пополнить баланс на <b>${conditionTopUpAmount}₽</b>`;
             } else {
