@@ -25,9 +25,21 @@ export const TRIGGER_DESCRIPTIONS: Record<string, string> = {
     'CHANNEL_SUBSCRIPTION': 'Fired when user subscribes to the channel.'
 };
 
+
+// Operator mapping: internal value -> display label
 export const CONDITION_OPERATORS = [
-    'EQUALS', 'NOT_EQUALS', 'GT', 'GTE', 'LT', 'LTE', 'IN', 'NOT_IN', 'EXISTS', 'NOT_EXISTS'
+    { value: 'EQUALS', label: '==' },
+    { value: 'NOT_EQUALS', label: '!=' },
+    { value: 'GT', label: '>' },
+    { value: 'GTE', label: '>=' },
+    { value: 'LT', label: '<' },
+    { value: 'LTE', label: '<=' },
+    { value: 'IN', label: 'in' },
+    { value: 'NOT_IN', label: '!in' },
+    { value: 'EXISTS', label: 'exists' },
+    { value: 'NOT_EXISTS', label: '!exists' }
 ];
+
 
 export const ACTION_TYPES = [
     'ACTIVATE_OVERLAY', 'DEACTIVATE_OVERLAY',
@@ -74,9 +86,10 @@ export const FSM_CONTEXT_VARIABLES = [
     'payload',
     'triggerEvent',
     'toStateName',
-    'fromStateId',
+    'fromStateName',
 
     // Explicitly mentioned in prompts or useful
     'lifecycle', // Virtual mapping to user state
     'overlay.TRIPWIRE', // Specific overlay states if needed
+    'overlay.ONBOARDING',
 ];

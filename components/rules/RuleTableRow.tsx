@@ -1,3 +1,4 @@
+'use client';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ interface Rule {
     description: string;
     priority: number;
     isActive: boolean;
+    group?: { id: string; name: string } | null;
     conditions: any[];
     actions: any[];
 }
@@ -52,7 +54,10 @@ export function RuleTableRow({
         <TableRow
             draggable={draggable}
             onDragStart={(e) => onDragStart?.(e, index)}
-            onDragOver={(e) => onDragOver?.(e, index)}
+            onDragOver={(e) => {
+                e.preventDefault();
+                onDragOver?.(e, index);
+            }}
             onDrop={(e) => onDrop?.(e, index)}
             className={draggable ? "cursor-move hover:bg-gray-50 transition-colors" : ""}
         >
@@ -77,19 +82,23 @@ export function RuleTableRow({
             </TableCell>
             <TableCell>
                 <div className="flex flex-col gap-1">
-                    {rule.conditions?.length ? rule.conditions.map((c, i) => (
-                        <span key={i} className="text-[10px] bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 inline-block w-fit font-mono text-gray-600">
-                            <span className="font-semibold">{c.field}</span> {c.operator === 'EQUALS' ? '=' : c.operator} <span className="text-blue-600">{c.value}</span>
-                        </span>
-                    )) : <span className="text-xs text-gray-300 italic">Always</span>}
+                    {rule.conditions?.length ? rule.conditions.map((c) => {
+                        const key = `${c.field}-${c.operator}-${String(c.value)}`;
+                        return (
+                            <span key={key} className="text-[10px] bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 inline-block w-fit font-mono text-gray-600">
+                                <span className="font-semibold">{c.field}</span> {c.operator === 'EQUALS' ? '=' : c.operator} <span className="text-blue-600">{c.value}</span>
+                            </span>
+                        );
+                    }) : <span className="text-xs text-gray-300 italic">Always</span>}
                 </div>
             </TableCell>
             <TableCell>
                 <div className="flex flex-wrap gap-1 max-w-[250px]">
-                    {rule.actions?.map((a, i) => {
+                    {rule.actions?.map((a) => {
                         const Icon = ACTION_ICONS[a.type] || Activity;
+                        const key = `${a.type}-${JSON.stringify(a.params)}`;
                         return (
-                            <div key={i} className="flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100" title={JSON.stringify(a.params)}>
+                            <div key={key} className="flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100" title={JSON.stringify(a.params)}>
                                 <Icon className="h-3 w-3" />
                                 <span>{a.type.replace('ACTIVATE_', '').replace('DEACTIVATE_', '').replace('_OVERLAY', '')}</span>
                             </div>

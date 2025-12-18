@@ -8,7 +8,8 @@ export async function GET() {
         const rules = await prisma.rule.findMany({
             include: {
                 conditions: true,
-                actions: { orderBy: { order: 'asc' } }
+                actions: { orderBy: { order: 'asc' } },
+                group: true
             },
             orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }]
         });
@@ -22,7 +23,18 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { code, description, trigger, priority, isActive, conditions, actions } = body;
+        const { code, description, trigger, priority, isActive, conditions, actions, groupId, group } = body;
+
+        let finalGroupId = groupId;
+        if (!finalGroupId && group) {
+            // Find or create group by name
+            const groupRecord = await prisma.ruleGroup.upsert({
+                where: { name: group },
+                update: {},
+                create: { name: group, order: 999 } // Default order
+            });
+            finalGroupId = groupRecord.id;
+        }
 
         if (!code || !trigger) {
             return NextResponse.json({ error: 'Code and Trigger are required' }, { status: 400 });
@@ -46,6 +58,7 @@ export async function POST(req: Request) {
                 trigger,
                 priority: Number(priority) || 0,
                 isActive: isActive ?? true,
+                groupId: finalGroupId || undefined,
                 conditions: {
                     create: conditions?.map((c: any) => ({
                         field: c.field,
@@ -64,7 +77,8 @@ export async function POST(req: Request) {
             },
             include: {
                 conditions: true,
-                actions: true
+                actions: true,
+                group: true
             }
         });
 

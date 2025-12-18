@@ -12,7 +12,7 @@ interface Rule {
     description: string;
     priority: number;
     isActive: boolean;
-    group?: string | null;
+    group?: { id: string; name: string } | null;
     conditions: any[];
     actions: any[];
 }
@@ -137,7 +137,36 @@ export default function RulesPage() {
     };
 
     // Calculate unique groups for autocomplete
-    const uniqueGroups = Array.from(new Set(rules.map(r => r.group || 'General'))).sort();
+    const uniqueGroups = Array.from(new Set(rules.map(r => r.group?.name || 'General'))).sort();
+
+    const handleRenameGroup = async (groupId: string, newName: string) => {
+        try {
+            await fetch(`/admin/api/groups/${groupId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName })
+            });
+            fetchRules();
+        } catch (e) {
+            console.error("Failed to rename group", e);
+            alert("Failed to rename group");
+        }
+    };
+
+    const handleCreateGroup = async (ruleId: string, groupName: string) => {
+        try {
+            // Implicitly create group via Rule update
+            await fetch(`/admin/api/rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ group: groupName })
+            });
+            fetchRules();
+        } catch (e) {
+            console.error("Failed to create group", e);
+            alert("Failed to create group");
+        }
+    };
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -156,6 +185,8 @@ export default function RulesPage() {
                 onDelete={handleDelete}
                 onReorder={handleReorder}
                 onDuplicate={handleDuplicate}
+                onRenameGroup={handleRenameGroup}
+                onCreateGroup={handleCreateGroup}
             />
             <RuleEditorModal
                 open={modalOpen}

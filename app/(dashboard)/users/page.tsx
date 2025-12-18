@@ -6,6 +6,7 @@ import { Line } from 'react-chartjs-2';
 import DatabaseErrorAlert from '@/components/DatabaseErrorAlert';
 import SendMessageModal from '@/components/SendMessageModal';
 import SendBroadcastModal from '@/components/SendBroadcastModal';
+import { Trash2 } from 'lucide-react';
 import UserDetailsModal from '@/components/UserDetailsModal';
 // ... imports ...
 import {
@@ -316,6 +317,28 @@ export default function UsersPage() {
   const handleSendMessage = (user: User) => {
     setSelectedUser({ id: user.id, username: user.username || user.firstName });
     setIsMessageModalOpen(true);
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    const confirmMessage = `Are you sure you want to delete user ${user.username || user.firstName || user.id}? This action cannot be undone.`;
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      const res = await fetch(`/admin/api/users/${user.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        alert('User deleted successfully');
+        fetchUsers(); // Refresh list
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(`Failed to delete user: ${data.error || res.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Failed to delete user');
+    }
   };
 
   return (
@@ -729,6 +752,13 @@ export default function UsersPage() {
                           className="text-blue-500 hover:text-blue-700 font-medium"
                         >
                           Message
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user)}
+                          className="text-red-500 hover:text-red-700 font-medium flex items-center gap-1"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
 
                       </td>

@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
@@ -27,10 +28,12 @@ export function RuleEditorModal({ open, onOpenChange, rule, onSave, existingGrou
     });
     const [availablePackages, setAvailablePackages] = useState<any[]>([]);
     const [fsmStates, setFsmStates] = useState<any[]>([]);
+    const [overlayCodes, setOverlayCodes] = useState<string[]>([]);
 
     useEffect(() => {
         fetchPackages();
         fetchFSMStates();
+        fetchOverlayCodes();
     }, []);
 
     const fetchFSMStates = async () => {
@@ -54,6 +57,18 @@ export function RuleEditorModal({ open, onOpenChange, rule, onSave, existingGrou
             }
         } catch (e) {
             console.error("Failed to load packages", e);
+        }
+    };
+
+    const fetchOverlayCodes = async () => {
+        try {
+            const res = await fetch('/admin/api/overlays/codes');
+            if (res.ok) {
+                const data = await res.json();
+                setOverlayCodes(data.codes);
+            }
+        } catch (e) {
+            console.error("Failed to load overlay codes", e);
         }
     };
 
@@ -207,6 +222,7 @@ export function RuleEditorModal({ open, onOpenChange, rule, onSave, existingGrou
                         onUpdate={updateCondition}
                         onRemove={removeCondition}
                         fsmStates={fsmStates}
+                        overlayCodes={overlayCodes}
                     />
 
                     {/* Actions */}

@@ -33,3 +33,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+
+    if (!id) {
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            // Delete UserOverlay manually as it does not have cascade delete in schema
+            await tx.userOverlay.deleteMany({
+                where: { userId: id }
+            });
+
+            // Delete User (Generations, Transactions etc should cascade if schema is correct)
+            await tx.user.delete({
+                where: { id }
+            });
+        });
+
+        return NextResponse.json({ success: true, message: 'User deleted successfully' });
+    } catch (error) {
+        console.error('Failed to delete user:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}

@@ -7,7 +7,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     try {
         const { id } = await params;
         const body = await req.json();
-        const { code, description, trigger, priority, isActive, conditions, actions } = body;
+        const { code, description, trigger, priority, isActive, conditions, actions, groupId, group } = body;
+
+        // Resolve Group Logic
+        let finalGroupId = groupId;
+        if (!finalGroupId && group) {
+            const groupRecord = await prisma.ruleGroup.upsert({
+                where: { name: group },
+                update: {},
+                create: { name: group, order: 999 }
+            });
+            finalGroupId = groupRecord.id;
+        }
 
         // Check existence
         const existing = await prisma.rule.findUnique({ where: { id } });
@@ -29,8 +40,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                     code,
                     description,
                     trigger,
-                    priority: Number(priority),
-                    isActive
+                    priority: Number(priority) || 0,
+                    isActive,
+                    groupId: finalGroupId // Update group relation
                 }
             });
 
@@ -63,7 +75,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
             return await tx.rule.findUnique({
                 where: { id },
-                include: { conditions: true, actions: { orderBy: { order: 'asc' } } }
+                include: {
+                    group: true,
+                    conditions: true,
+                    actions: { orderBy: { order: 'asc' } }
+                }
             });
         });
 

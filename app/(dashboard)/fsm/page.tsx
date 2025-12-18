@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 // Card imports removed
-import { Plus, Edit, Copy, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Copy, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import UserDistributionChart from '@/components/fsm/UserDistributionChart';
@@ -69,7 +69,7 @@ export default function FSMPage() {
         if (!confirm("Are you sure you want to activate this version? This will deactivate all others.")) return;
 
         try {
-            const res = await fetch(`/api/fsm/versions/${id}`, {
+            const res = await fetch(`/admin/api/fsm/versions/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ isActive: true })
@@ -77,6 +77,25 @@ export default function FSMPage() {
             if (res.ok) fetchVersions();
         } catch (e) { console.error(e); }
     }
+
+    const handleDelete = async (id: number) => {
+        if (!confirm("Are you sure you want to delete this version? This action cannot be undone.")) return;
+
+        try {
+            const res = await fetch(`/admin/api/fsm/versions/${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                fetchVersions();
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                alert(`Failed to delete version: ${errData.error || res.statusText}`);
+            }
+        } catch (e) {
+            console.error("Error deleting version:", e);
+            alert("Failed to delete version");
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -121,12 +140,20 @@ export default function FSMPage() {
                                 </div>
                                 <div className="flex gap-2">
                                     {!version.isActive && (
-                                        <button
-                                            onClick={() => handleActivate(version.id)}
-                                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                        >
-                                            Set Active
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => handleActivate(version.id)}
+                                                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            >
+                                                Set Active
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(version.id)}
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                            </button>
+                                        </>
                                     )}
                                     <Link href={`/fsm/${version.id}`}>
                                         <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900">
