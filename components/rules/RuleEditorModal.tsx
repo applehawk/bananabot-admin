@@ -50,7 +50,7 @@ export function RuleEditorModal({ open, onOpenChange, rule, onSave, existingGrou
 
     const fetchPackages = async () => {
         try {
-            const res = await fetch('/admin/api/credits/packages');
+            const res = await fetch('/admin/api/packages');
             if (res.ok) {
                 const data = await res.json();
                 setAvailablePackages(data);
@@ -205,6 +205,9 @@ export function RuleEditorModal({ open, onOpenChange, rule, onSave, existingGrou
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{rule ? 'Edit Rule' : 'Create New Rule'}</DialogTitle>
+                    <div className="text-sm text-gray-500">
+                        {rule ? 'Modify the logic and parameters for this rule.' : 'Define a new rule with triggers, conditions, and actions.'}
+                    </div>
                 </DialogHeader>
 
                 <div className="grid grid-cols-2 gap-4 py-4">

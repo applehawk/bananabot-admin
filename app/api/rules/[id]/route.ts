@@ -54,7 +54,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                         ruleId: id,
                         field: c.field,
                         operator: c.operator,
-                        value: String(c.value),
+                        value: c.value !== undefined && c.value !== null ? String(c.value) : null,
                         groupId: Number(c.groupId) || 0
                     }))
                 });
@@ -86,7 +86,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         return NextResponse.json(updatedRule);
     } catch (error) {
         console.error('Failed to update rule:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        // @ts-ignore
+        return NextResponse.json({ error: 'Internal Server Error', details: error?.message || String(error) }, { status: 500 });
     }
 }
 

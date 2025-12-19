@@ -20,7 +20,7 @@ COPY package.json bun.lock* ./
 # 16.71 error: IntegrityCheckFailed extracting tarball from date-fns                     
 # ------                                                                                 
 # target bot: failed to solve: process "/bin/sh -c bun install --frozen-lockfile" did not complete successfully: exit code: 1
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # ==========================================
 # STAGE 3: Builder

@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, PlayCircle, PauseCircle, GripVertical, Copy, Mail, Tag, Zap, Activity, FileJson } from 'lucide-react';
+import { Edit, Trash2, PlayCircle, PauseCircle, GripVertical, Copy, Tag, Zap, Activity, FileJson, Ban } from 'lucide-react';
 
 interface Rule {
     id: string;
@@ -31,12 +31,11 @@ interface RuleTableRowProps {
 }
 
 const ACTION_ICONS: Record<string, any> = {
-    'SEND_MESSAGE': Mail,
     'TAG_USER': Tag,
     'ACTIVATE_OVERLAY': Zap,
     'DEACTIVATE_OVERLAY': Zap,
-    'EMIT_EVENT': Activity,
-    'LOG_EVENT': FileJson
+    'LOG_EVENT': FileJson,
+    'NO_OP': Ban
 };
 
 export function RuleTableRow({
@@ -97,10 +96,20 @@ export function RuleTableRow({
                     {rule.actions?.map((a) => {
                         const Icon = ACTION_ICONS[a.type] || Activity;
                         const key = `${a.type}-${JSON.stringify(a.params)}`;
+
+                        const isActivate = a.type === 'ACTIVATE_OVERLAY';
+                        const isDeactivate = a.type === 'DEACTIVATE_OVERLAY';
+                        const overlayType = (isActivate || isDeactivate) ? a.params?.type : null;
+
+                        let badgeClass = "bg-blue-50 text-blue-700 border-blue-100";
+                        if (isActivate) badgeClass = "bg-green-50 text-green-700 border-green-100";
+                        if (isDeactivate) badgeClass = "bg-red-50 text-red-700 border-red-100";
+                        if (a.type === 'TAG_USER' || a.type === 'LOG_EVENT' || a.type === 'NO_OP') badgeClass = "bg-gray-50 text-gray-700 border-gray-100";
+
                         return (
-                            <div key={key} className="flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100" title={JSON.stringify(a.params)}>
+                            <div key={key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${badgeClass}`} title={JSON.stringify(a.params)}>
                                 <Icon className="h-3 w-3" />
-                                <span>{a.type.replace('ACTIVATE_', '').replace('DEACTIVATE_', '').replace('_OVERLAY', '')}</span>
+                                <span>{overlayType || a.type.replace('ACTIVATE_', '').replace('DEACTIVATE_', '').replace('_OVERLAY', '')}</span>
                             </div>
                         )
                     })}

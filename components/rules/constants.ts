@@ -3,7 +3,7 @@ export const RULE_TRIGGERS = [
     'BOT_START', 'GENERATION_REQUESTED', 'GENERATION_COMPLETED', 'CREDITS_CHANGED',
     'PAYMENT_COMPLETED', 'PAYMENT_FAILED', 'TIME', 'ADMIN_EVENT', 'OVERLAY_ACTIVATED',
     'OVERLAY_EXPIRED', 'STATE_CHANGED', 'REFERRAL_INVITE', 'REFERRAL_PAID', 'STREAK_REACHED', 'INSUFFICIENT_CREDITS',
-    'CHANNEL_SUBSCRIPTION'
+    'CHANNEL_SUBSCRIPTION', 'UI_EVENT'
 ];
 
 export const TRIGGER_DESCRIPTIONS: Record<string, string> = {
@@ -22,7 +22,8 @@ export const TRIGGER_DESCRIPTIONS: Record<string, string> = {
     'REFERRAL_PAID': 'Fired for the REFERRER when their invitee starts the bot.',
     'STREAK_REACHED': 'Reserved / Not Implemented.',
     'INSUFFICIENT_CREDITS': 'Fired when user attempts generation without enough credits (Tripwire).',
-    'CHANNEL_SUBSCRIPTION': 'Fired when user subscribes to the channel.'
+    'CHANNEL_SUBSCRIPTION': 'Fired when user subscribes to the channel.',
+    'UI_EVENT': 'Fired when user interacts with UI elements (e.g. Onboarding buttons).'
 };
 
 
@@ -82,14 +83,26 @@ export const FSM_CONTEXT_VARIABLES = [
     'hoursSinceLastGen',
     'hoursSinceLastActivity',
 
-    // Payload / FSM Specific
+    // Payload / FSM Context
+    'event.subType',
+    'generation.type',
+    'isMilestone',
+    'trigger_event',  // Snake case alias
+    'to_state_name',  // Snake case alias
+    'overlayType',
+
+    // Legacy / Aliases
     'payload',
     'triggerEvent',
     'toStateName',
     'fromStateName',
 
-    // Explicitly mentioned in prompts or useful
-    'lifecycle', // Virtual mapping to user state
-    'overlay.TRIPWIRE', // Specific overlay states if needed
+    // Explicitly mentioned in rules
+    'lifecycle',
+    'overlay.TRIPWIRE',
+    'overlay.TRIPWIRE.state',
     'overlay.ONBOARDING',
+    'overlay.ONBOARDING.metadata.step',
+    'overlay.REFERRAL',
+    'overlay.PAYMENT_RETRY'
 ];

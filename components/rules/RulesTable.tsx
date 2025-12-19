@@ -85,9 +85,26 @@ export function RulesTable({ rules, loading, onEdit, onDelete, onReorder, onDupl
         if (dragItem.current === null || dragOverItem.current === null) return;
 
         const _rules = [...rules];
-        const draggedItemContent = _rules[dragItem.current];
-        _rules.splice(dragItem.current, 1);
-        _rules.splice(dragOverItem.current, 0, draggedItemContent);
+        const draggedIndex = dragItem.current;
+        const targetIndex = dragOverItem.current;
+
+        // Skip if dropping on itself
+        if (draggedIndex === targetIndex) {
+            dragItem.current = null;
+            dragOverItem.current = null;
+            return;
+        }
+
+        const draggedItemContent = { ..._rules[draggedIndex] };
+        const targetItemContent = _rules[targetIndex];
+
+        // Update group to match the target rule's group
+        if (draggedItemContent.group?.id !== targetItemContent.group?.id) {
+            draggedItemContent.group = targetItemContent.group;
+        }
+
+        _rules.splice(draggedIndex, 1);
+        _rules.splice(targetIndex, 0, draggedItemContent);
 
         dragItem.current = null;
         dragOverItem.current = null;

@@ -122,13 +122,23 @@ export default function RulesPage() {
 
         try {
             // Bulk update via Promise.all
-            await Promise.all(updatedRules.map(u =>
-                fetch(`/admin/api/rules/${u.id}`, {
+            // Bulk update via Promise.all
+            await Promise.all(updatedRules.map(u => {
+                const isTempGroup = u.group?.id?.startsWith('temp');
+                const body: any = { priority: u.priority };
+
+                if (isTempGroup) {
+                    body.group = u.group?.name;
+                } else {
+                    body.groupId = u.group?.id ?? null;
+                }
+
+                return fetch(`/admin/api/rules/${u.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ priority: u.priority })
-                })
-            ));
+                    body: JSON.stringify(body)
+                });
+            }));
         } catch (e) {
             console.error("Failed to reorder", e);
             alert("Failed to save new order");
